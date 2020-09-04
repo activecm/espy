@@ -10,34 +10,11 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	log "github.com/sirupsen/logrus"
-)
 
-//TODO: Move this to its own file.
-type ECSFlowData struct {
-	RFCTimestamp string `json:"@timestamp"`
-	Agent        struct {
-		Hostname string
-	}
-	Source struct {
-		IP      string
-		Port    int
-		Bytes   int64
-		Packets int64
-	}
-	Destination struct {
-		IP      string
-		Port    int
-		Bytes   int64
-		Packets int64
-	}
-	Network struct {
-		Transport string // RITA Proto
-		Protocol  string // RITA Service
-	}
-	Event struct {
-		Duration float64
-	}
-}
+	"github.com/activecm/espy/input"
+	"github.com/activecm/espy/output"
+	"github.com/activecm/espy/output/zeek"
+)
 
 //const version = "Espy v0.0.1"
 
@@ -63,16 +40,16 @@ var (
 	//verbose controls how much is written to stdout
 	verbose = flag.Bool("verbose", false, "log more information")
 
-	//zeekPAth is the directory to write Zeek data out to
-	//zeekPath = flag.String("zeek-path", "/opt/zeek/logs", "Folder in which to write Zeek logs")
+	//zeekPath is the directory to write Zeek data out to
+	zeekPath = flag.String("zeek-path", "/opt/zeek/logs", "Folder in which to write Zeek logs")
 
-	// oneShot determines whether the program will rotate logs or not
-	//oneShot = flag.Bool("one-shot", false, "Export all log records to a single file")
+	//disableRotate determines whether the program will rotate logs or not
+	disableRotate = flag.Bool("disable-rotation", false, "Export all Zeek records to a single file")
 )
 
 //linkContextToInterrupt creates a child context which is cancelled when
 //the program receives an interrupt
-func linkContextToInterrupt(ctx context.Context) context.Context {
+func linkContextToInterrupt(ctx context.Context) (context.Context, context.CancelFunc) {
 	ctx, cancelCtx := context.WithCancel(ctx)
 
 	c := make(chan os.Signal, 1)
@@ -81,7 +58,7 @@ func linkContextToInterrupt(ctx context.Context) context.Context {
 		<-c
 		cancelCtx()
 	}()
-	return ctx
+	return ctx, cancelCtx
 }
 
 func main() {
@@ -106,13 +83,26 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	ctx := linkContextToInterrupt(context.Background())
+	ctx, ctxCancelFunc := linkContextToInterrupt(context.Background())
 
 	client := redis.NewClient(&redis.Options{
 		Addr:     *redisHost,
 		Username: *redisUser,
 		Password: *redisSecret,
 	})
+
+	var zeekWriter output.ECSWriter
+	var err error
+	if *disableRotate {
+		zeekWriter, err = zeek.CreateStandardWritingSystem(*zeekPath, debug)
+	} else {
+		zeekWriter, err = zeek.CreateRollingWritingSystem(*zeekPath, ctxCancelFunc, debug)
+	}
+
+	if err != nil {
+		log.WithError(err).Error("Failed to initialize Zeek writer. Shutting down.")
+		return
+	}
 
 	for {
 		netMessage, err := client.BLPop(ctx, 0, "net-data:sysmon" /*, "net-data:packetbeat"*/).Result()
@@ -121,14 +111,29 @@ func main() {
 			break
 		}
 
-		ecsFlowData := ECSFlowData{}
-		err = json.Unmarshal([]byte(netMessage[1]), &ecsFlowData)
+		ecsData := input.ECSSession{}
+		err = json.Unmarshal([]byte(netMessage[1]), &ecsData)
 		if err != nil {
 			log.WithError(err).WithField("input", netMessage[1]).Error("Could not parse JSON data.")
 			continue
 		}
 
-		log.Debug(fmt.Sprintf("%+v", ecsFlowData))
+		log.Debug(fmt.Sprintf("%+v", ecsData))
+		err = zeekWriter.AddSessionToWriter([]*input.ECSSession{&ecsData})
+		if err != nil {
+			if err == zeek.ErrMalformedECSSession {
+				log.WithError(err).WithField("input", netMessage[1]).Error("Could not read malformed ECS data")
+				continue
+			} else {
+				log.WithError(err).WithField("input", netMessage[1]).Error("Could not write Zeek data. Shutting down.")
+				break
+			}
+		}
+	}
+
+	err = zeekWriter.Close()
+	if err != nil {
+		log.WithError(err).Error("Error encountered while closing Zeek writer.")
 	}
 
 }
