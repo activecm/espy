@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	log "github.com/sirupsen/logrus"
@@ -104,11 +105,23 @@ func main() {
 		return
 	}
 
+MainLoop:
 	for {
-		netMessage, err := client.BLPop(ctx, 0, "net-data:sysmon" /*, "net-data:packetbeat"*/).Result()
-		if err != nil {
+		netMessage, err := client.BLPop(ctx, time.Second, "net-data:sysmon" /*, "net-data:packetbeat"*/).Result()
+		if err == redis.Nil || err == context.Canceled {
+			select {
+			case <-ctx.Done():
+				// Read timeout and exit signal received. Shut down.
+				log.WithError(err).Warn("Received exit signal. Shutting down.")
+				break MainLoop
+			default:
+				//log.WithError(err).Debug("Timed out while polling Redis for data.")
+				// Read timeout but no exit signal, keep polling Redis
+				continue
+			}
+		} else if err != nil {
 			log.WithError(err).Error("Could not read data from Redis. Shutting down.")
-			break
+			break MainLoop
 		}
 
 		ecsData := input.ECSSession{}
