@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	log "github.com/sirupsen/logrus"
@@ -36,6 +40,15 @@ var (
 
 	//redisSecret is the Redis user secret to authenticate with
 	redisSecret = flag.String("redis-pw", "NET_RECEIVER_SECRET_PLACEHOLDER", "Redis user secret")
+
+	//elasticHost is the Elasticsearch host to send data to
+	elasticHost = flag.String("elastc-host", "127.0.0.1:9200", "Elasticsearch host to read from")
+
+	// elasticUser is the Elasticsearch user to authenticate as
+	elasticUser = flag.String("elastic-user", "sysmon-ingest", "Elasticsearch user account name")
+
+	//elasticPass is the Redis user secret to authenticate with
+	elasticPass = flag.String("elastic-pw", "password", "Elasticsearch user password")
 
 	//verbose controls how much is written to stdout
 	verbose = flag.Bool("verbose", false, "log more information")
@@ -109,6 +122,26 @@ func main() {
 		if err != nil {
 			log.WithError(err).Error("Could not read data from Redis. Shutting down.")
 			break
+		}
+
+		reader := strings.NewReader(netMessage[1])
+		today := time.Now().UTC()
+		request, err := http.NewRequest("POST", "https://"+*elasticHost+"/sysmon-"+today.Format("2006-01-02")+"/_doc", reader)
+		if err != nil {
+			log.WithError(err).WithField("input", netMessage[1]).Error("Could not create HTTP request to handoff data to Elasticsearch.")
+		}
+
+		// TODO: Properly handle invalid Elasticsearch certs
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		request.SetBasicAuth(*elasticUser, *elasticPass)
+		request.Header.Set("Content-Type", "application/json")
+		client := &http.Client{}
+		resp, err := client.Do(request)
+		if err != nil || resp == nil {
+			log.WithError(err).WithField("input", netMessage[1]).Error("Could not connect to Elasticsearch.")
+		} else {
+			fmt.Print(resp)
+			resp.Body.Close()
 		}
 
 		ecsData := input.ECSSession{}
