@@ -18,10 +18,11 @@ func TestGetHeader(t *testing.T) {
 		"\n#fields\tts\tuid\tid.orig_h\tid.orig_p\tid.resp_h\tid.resp_p\t" +
 		"proto\tservice\tduration\torig_bytes\tresp_bytes\tconn_state\t" +
 		"local_orig\tlocal_resp\tmissed_bytes\thistory\torig_pkts\t" +
-		"orig_ip_bytes\tresp_pkts\tresp_ip_bytes\ttunnel_parents\n" +
+		"orig_ip_bytes\tresp_pkts\tresp_ip_bytes\ttunnel_parents\t" +
+		"orig_network_id\tresp_network_id\torig_network_name\tresp_network_name\n" +
 		"#types\ttime\tstring\taddr\tport\taddr\tport\tenum\tstring\t" +
 		"interval\tcount\tcount\tstring\tbool\tbool\tcount\tstring\t" +
-		"count\tcount\tcount\tcount\tset[string]\n"
+		"count\tcount\tcount\tcount\tset[string]\taddr\ttaddr\tstring\tstring\n"
 
 	resStr := getHeader(currTime)
 

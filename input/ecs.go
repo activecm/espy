@@ -4,6 +4,7 @@ type ECSSession struct {
 	RFCTimestamp string `json:"@timestamp"`
 	Agent        struct {
 		Hostname string
+		ID       string
 	}
 	Source struct {
 		IP      string
