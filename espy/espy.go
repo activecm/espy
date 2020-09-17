@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -26,9 +29,6 @@ var (
 	// version prints the version
 	//versionFlag = flag.Bool("version", false, "Print version")
 
-	//esHost is the optional Elasticsearch server to send data to
-	//esHost = flag.String("es-host", "", "Elasticsearch host to write to")
-
 	//redisHost is the Redis host to read net data from
 	redisHost = flag.String("redis-host", "127.0.0.1:6379", "Redis host to read from")
 
@@ -38,6 +38,15 @@ var (
 	//redisSecret is the Redis user secret to authenticate with
 	redisSecret = flag.String("redis-pw", "NET_RECEIVER_SECRET_PLACEHOLDER", "Redis user secret")
 
+	//elasticHost is the Elasticsearch host to send data to
+	elasticHost = flag.String("elastic-host", "127.0.0.1:9200", "Elasticsearch host to read from")
+
+	// elasticUser is the Elasticsearch user to authenticate as
+	elasticUser = flag.String("elastic-user", "sysmon-ingest", "Elasticsearch user account name")
+
+	//elasticPass is the Redis user secret to authenticate with
+	elasticPass = flag.String("elastic-pw", "password", "Elasticsearch user password")
+
 	//verbose controls how much is written to stdout
 	verbose = flag.Bool("verbose", false, "log more information")
 
@@ -46,6 +55,9 @@ var (
 
 	//disableRotate determines whether the program will rotate logs or not
 	disableRotate = flag.Bool("disable-rotation", false, "Export all Zeek records to a single file")
+
+	//disableTLS determines whether or not to disable TLS cert checking for Elasticsearch connections
+	disableTLS = flag.Bool("disable-tls", false, "Disable TLS certificate checking for Elasticsearch")
 )
 
 //linkContextToInterrupt creates a child context which is cancelled when
@@ -124,6 +136,28 @@ MainLoop:
 			break MainLoop
 		}
 
+		reader := strings.NewReader(netMessage[1])
+		today := time.Now().UTC()
+		request, err := http.NewRequest("POST", "https://"+*elasticHost+"/sysmon-"+today.Format("2006-01-02")+"/_doc", reader)
+		if err != nil {
+			log.WithError(err).WithField("input", netMessage[1]).Error("Could not create HTTP request to handoff data to Elasticsearch.")
+		}
+
+		if *disableTLS == true {
+			http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		}
+		request.SetBasicAuth(*elasticUser, *elasticPass)
+		request.Header.Set("Content-Type", "application/json")
+		client := &http.Client{}
+		resp, err := client.Do(request)
+		if err != nil || resp == nil || resp.StatusCode < 200 || resp.StatusCode > 299 {
+			log.WithError(err).WithField("input", netMessage[1]).Error("Could not connect to Elasticsearch.")
+
+		} else {
+			log.Debug(fmt.Sprintf("[%d] OK %s Data transferred to Elasticsearch", resp.StatusCode, today.Format("2006-01-02 3:04.000")))
+			resp.Body.Close()
+		}
+
 		ecsData := input.ECSSession{}
 		err = json.Unmarshal([]byte(netMessage[1]), &ecsData)
 		if err != nil {
@@ -150,3 +184,4 @@ MainLoop:
 	}
 
 }
+
