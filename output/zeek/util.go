@@ -22,7 +22,7 @@ func getHeader(headerTime time.Time) string {
 		"orig_network_id\tresp_network_id\torig_network_name\tresp_network_name\n" +
 		"#types\ttime\tstring\taddr\tport\taddr\tport\tenum\tstring\t" +
 		"interval\tcount\tcount\tstring\tbool\tbool\tcount\tstring\t" +
-		"count\tcount\tcount\tcount\tset[string]\taddr\ttaddr\tstring\tstring\n"
+		"count\tcount\tcount\tcount\tset[string]\tstring\tstring\tstring\tstring\n"
 }
 
 func writeLine(outputData []*input.ECSSession, fileWriter io.Writer) error {
