@@ -8,8 +8,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/activecm/espy/input"
-	"github.com/activecm/espy/output"
+	"github.com/activecm/BeaKer/espy/input"
+	"github.com/activecm/BeaKer/espy/output"
 )
 
 // No scheduling, single dump file

@@ -12,9 +12,9 @@ import (
 	"github.com/go-redis/redis/v8"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/activecm/espy/input"
-	"github.com/activecm/espy/output"
-	"github.com/activecm/espy/output/zeek"
+	"github.com/activecm/BeaKer/espy/input"
+	"github.com/activecm/BeaKer/espy/output"
+	"github.com/activecm/BeaKer/espy/output/zeek"
 )
 
 //const version = "Espy v0.0.1"
