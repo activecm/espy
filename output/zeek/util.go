@@ -3,10 +3,11 @@ package zeek
 import (
 	"errors"
 	"fmt"
-	"github.com/activecm/espy/input"
 	"io"
 	"os"
 	"time"
+
+	"github.com/activecm/espy/input"
 )
 
 var ErrMalformedECSSession = errors.New("Encountered malformed data in ECSSession")
@@ -17,10 +18,11 @@ func getHeader(headerTime time.Time) string {
 		"\n#fields\tts\tuid\tid.orig_h\tid.orig_p\tid.resp_h\tid.resp_p\t" +
 		"proto\tservice\tduration\torig_bytes\tresp_bytes\tconn_state\t" +
 		"local_orig\tlocal_resp\tmissed_bytes\thistory\torig_pkts\t" +
-		"orig_ip_bytes\tresp_pkts\tresp_ip_bytes\ttunnel_parents\n" +
+		"orig_ip_bytes\tresp_pkts\tresp_ip_bytes\ttunnel_parents\t" +
+		"agent_uuid\tagent_hostname\n" +
 		"#types\ttime\tstring\taddr\tport\taddr\tport\tenum\tstring\t" +
 		"interval\tcount\tcount\tstring\tbool\tbool\tcount\tstring\t" +
-		"count\tcount\tcount\tcount\tset[string]\n"
+		"count\tcount\tcount\tcount\tset[string]\tstring\tstring\n"
 }
 
 func writeLine(outputData []*input.ECSSession, fileWriter io.Writer) error {
@@ -47,7 +49,7 @@ func outputRecordsToString(outputData []*input.ECSSession) (output string, err e
 			return output, ErrMalformedECSSession
 		}
 
-		output += fmt.Sprintf("%.6f\t-\t%s\t%d\t%s\t%d\t%s\t-\t-\t-\t-\t-\tF\tF\t-\t-\t-\t-\t-\t-\t(empty)\n",
+		output += fmt.Sprintf("%.6f\t-\t%s\t%d\t%s\t%d\t%s\t-\t-\t-\t-\t-\tF\tF\t-\t-\t-\t-\t-\t-\t(empty)\t%s\t%s\n",
 			// from Sam: WARNING the way we handle data in RITA uses a floating time and splits
 			//  on the . in a time string. As such this needs to be a floating point
 			//  number. If we change the ingestion to handle floating timestamps this
@@ -58,6 +60,8 @@ func outputRecordsToString(outputData []*input.ECSSession) (output string, err e
 			data.Destination.IP,
 			data.Destination.Port,
 			data.Network.Transport,
+			data.Agent.ID,
+			data.Agent.Hostname,
 		)
 	}
 	return output, err
