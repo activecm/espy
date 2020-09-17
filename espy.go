@@ -137,10 +137,11 @@ func main() {
 		request.Header.Set("Content-Type", "application/json")
 		client := &http.Client{}
 		resp, err := client.Do(request)
-		if err != nil || resp == nil {
+		if err != nil || resp == nil || resp.StatusCode < 200 || resp.StatusCode > 299 {
 			log.WithError(err).WithField("input", netMessage[1]).Error("Could not connect to Elasticsearch.")
+			continue
 		} else {
-			fmt.Print(resp)
+			log.Debug(fmt.Sprintf("[%d] OK %s Data transferred to Elasticsearch", resp.StatusCode, today.Format("2006-01-02 3:04.000")))
 			resp.Body.Close()
 		}
 
