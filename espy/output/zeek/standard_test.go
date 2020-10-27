@@ -7,7 +7,7 @@ import (
 )
 
 func TestConstructor(t *testing.T) {
-	w, err := CreateStandardWritingSystem("/opt/zeek/logs", false)
+	w, err := CreateStandardWritingSystem("/opt/zeek/logs")
 	if err != nil {
 		t.Error(err)
 	}
@@ -22,7 +22,7 @@ func TestConstructor(t *testing.T) {
 }
 
 func TestClosing(t *testing.T) {
-	w, err := CreateStandardWritingSystem("/opt/zeek/logs", false)
+	w, err := CreateStandardWritingSystem("/opt/zeek/logs")
 	if err != nil {
 		t.Error(err)
 	}

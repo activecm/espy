@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -15,49 +14,25 @@ import (
 	"github.com/go-redis/redis/v8"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/activecm/BeaKer/espy/config"
 	"github.com/activecm/BeaKer/espy/input"
 	"github.com/activecm/BeaKer/espy/output"
 	"github.com/activecm/BeaKer/espy/output/zeek"
 )
 
-//const version = "Espy v0.0.1"
-
-const debug = true
-
 // command line flags
 var (
-	// version prints the version
-	//versionFlag = flag.Bool("version", false, "Print version")
+	configFlag = flag.String(
+		"config",
+		"",
+		"Use a given `CONFIG_FILE` instead of "+config.DefaultConfigPath,
+	)
 
-	//redisHost is the Redis host to read net data from
-	redisHost = flag.String("redis-host", "127.0.0.1:6379", "Redis host to read from")
-
-	//redisUser is the Redis user to authenticate as
-	redisUser = flag.String("redis-user", "net-receiver", "Redis user account name")
-
-	//redisSecret is the Redis user secret to authenticate with
-	redisSecret = flag.String("redis-pw", "NET_RECEIVER_SECRET_PLACEHOLDER", "Redis user secret")
-
-	//elasticHost is the Elasticsearch host to send data to
-	elasticHost = flag.String("elastic-host", "127.0.0.1:9200", "Elasticsearch host to read from")
-
-	// elasticUser is the Elasticsearch user to authenticate as
-	elasticUser = flag.String("elastic-user", "sysmon-ingest", "Elasticsearch user account name")
-
-	//elasticPass is the Redis user secret to authenticate with
-	elasticPass = flag.String("elastic-pw", "password", "Elasticsearch user password")
-
-	//verbose controls how much is written to stdout
-	verbose = flag.Bool("verbose", false, "log more information")
-
-	//zeekPath is the directory to write Zeek data out to
-	zeekPath = flag.String("zeek-path", "/opt/zeek/logs", "Folder in which to write Zeek logs")
-
-	//disableRotate determines whether the program will rotate logs or not
-	disableRotate = flag.Bool("disable-rotation", false, "Export all Zeek records to a single file")
-
-	//disableTLS determines whether or not to disable TLS cert checking for Elasticsearch connections
-	disableTLS = flag.Bool("disable-tls", false, "Disable TLS certificate checking for Elasticsearch")
+	versionFlag = flag.Bool(
+		"version",
+		false,
+		"Print the version and exit immediately",
+	)
 )
 
 //linkContextToInterrupt creates a child context which is cancelled when
@@ -75,41 +50,50 @@ func linkContextToInterrupt(ctx context.Context) (context.Context, context.Cance
 }
 
 func main() {
-	fmt.Println("Welcome to Espy by Active Countermeasures!")
-
-	// parse command line flags into globally defined options  above
+	// parse command line flags into globally defined options above
 	flag.Parse()
-
-	// if simple version request, proceed to exit
-	// if *versionFlag {
-	// 	fmt.Println(version)
-	// 	os.Exit(0)
-	// }
-
-	if *verbose {
-		log.SetLevel(log.InfoLevel)
-	} else {
-		log.SetLevel(log.WarnLevel)
+	log.SetLevel(log.InfoLevel)
+	if *versionFlag {
+		log.Info(config.ExactVersion)
+		return
 	}
 
-	if debug {
-		log.SetLevel(log.DebugLevel)
+	log.Info("Welcome to Espy by Active Countermeasures!")
+	conf, err := config.LoadConfig(*configFlag)
+	if err != nil {
+		log.WithError(err).Fatal("Could not load configuration file")
 	}
+	log.SetLevel(log.Level(conf.S.LogLevel))
 
+	// create context to coordinate async shutdown
 	ctx, ctxCancelFunc := linkContextToInterrupt(context.Background())
 
-	client := redis.NewClient(&redis.Options{
-		Addr:     *redisHost,
-		Username: *redisUser,
-		Password: *redisSecret,
+	// set up redis connection
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     conf.S.Redis.Host,
+		Username: conf.S.Redis.User,
+		Password: conf.S.Redis.Password,
 	})
+	if conf.R.Redis.TLSConfig != nil {
+		redisClient.Options().TLSConfig = conf.R.Redis.TLSConfig
+	}
 
+	// set up elastic connection
+	esClient := &http.Client{}
+	if conf.R.Elasticsearch.TLSConfig != nil {
+		esClient.Transport = &http.Transport{
+			TLSClientConfig: conf.R.Elasticsearch.TLSConfig,
+		}
+	}
+
+	// set up zeek file writer
 	var zeekWriter output.ECSWriter
-	var err error
-	if *disableRotate {
-		zeekWriter, err = zeek.CreateStandardWritingSystem(*zeekPath, debug)
+	if conf.S.Zeek.RotateLogs {
+		zeekWriter, err = zeek.CreateRollingWritingSystem(
+			conf.S.Zeek.OutputPath, ctxCancelFunc,
+		)
 	} else {
-		zeekWriter, err = zeek.CreateRollingWritingSystem(*zeekPath, ctxCancelFunc, debug)
+		zeekWriter, err = zeek.CreateStandardWritingSystem(conf.S.Zeek.OutputPath)
 	}
 
 	if err != nil {
@@ -119,7 +103,9 @@ func main() {
 
 MainLoop:
 	for {
-		netMessage, err := client.BLPop(ctx, time.Second, "net-data:sysmon" /*, "net-data:packetbeat"*/).Result()
+		//try to get more data to process
+		netMessage, err := redisClient.BLPop(ctx, time.Second, "net-data:sysmon" /*, "net-data:packetbeat"*/).Result()
+
 		if err == redis.Nil || err == context.Canceled {
 			select {
 			case <-ctx.Done():
@@ -127,7 +113,7 @@ MainLoop:
 				log.WithError(err).Warn("Received exit signal. Shutting down.")
 				break MainLoop
 			default:
-				//log.WithError(err).Debug("Timed out while polling Redis for data.")
+				log.WithError(err).Debug("Timed out while polling Redis for data.")
 				// Read timeout but no exit signal, keep polling Redis
 				continue
 			}
@@ -136,28 +122,27 @@ MainLoop:
 			break MainLoop
 		}
 
-		reader := strings.NewReader(netMessage[1])
-		today := time.Now().UTC()
-		request, err := http.NewRequest("POST", "https://"+*elasticHost+"/sysmon-"+today.Format("2006-01-02")+"/_doc", reader)
-		if err != nil {
-			log.WithError(err).WithField("input", netMessage[1]).Error("Could not create HTTP request to handoff data to Elasticsearch.")
+		//send message to elasticsearch
+		if conf.S.Elasticsearch.Host != "" {
+			reader := strings.NewReader(netMessage[1])
+			today := time.Now()
+			esHostURL := fmt.Sprintf("https://%s/sysmon-%s/_doc", conf.S.Elasticsearch.Host, today.Format("2006-01-02"))
+			request, err := http.NewRequest("POST", esHostURL, reader)
+			if err != nil {
+				log.WithError(err).WithField("input", netMessage[1]).Error("Could not create HTTP request to handoff data to Elasticsearch.")
+			}
+			request.SetBasicAuth(conf.S.Elasticsearch.User, conf.S.Elasticsearch.Password)
+			request.Header.Set("Content-Type", "application/json")
+			resp, err := esClient.Do(request)
+			if err != nil || resp == nil || resp.StatusCode < 200 || resp.StatusCode > 299 {
+				log.WithError(err).WithField("input", netMessage[1]).Error("Could not connect to Elasticsearch.")
+			} else {
+				log.Debug(fmt.Sprintf("[%d] OK %s Data transferred to Elasticsearch", resp.StatusCode, today.Format("2006-01-02 3:04.000")))
+				resp.Body.Close()
+			}
 		}
 
-		if *disableTLS == true {
-			http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-		}
-		request.SetBasicAuth(*elasticUser, *elasticPass)
-		request.Header.Set("Content-Type", "application/json")
-		client := &http.Client{}
-		resp, err := client.Do(request)
-		if err != nil || resp == nil || resp.StatusCode < 200 || resp.StatusCode > 299 {
-			log.WithError(err).WithField("input", netMessage[1]).Error("Could not connect to Elasticsearch.")
-
-		} else {
-			log.Debug(fmt.Sprintf("[%d] OK %s Data transferred to Elasticsearch", resp.StatusCode, today.Format("2006-01-02 3:04.000")))
-			resp.Body.Close()
-		}
-
+		//parse data and send it to zeek writer
 		ecsData := input.ECSSession{}
 		err = json.Unmarshal([]byte(netMessage[1]), &ecsData)
 		if err != nil {
@@ -165,7 +150,6 @@ MainLoop:
 			continue
 		}
 
-		log.Debug(fmt.Sprintf("%+v", ecsData))
 		err = zeekWriter.AddSessionToWriter([]*input.ECSSession{&ecsData})
 		if err != nil {
 			if err == zeek.ErrMalformedECSSession {
@@ -182,6 +166,4 @@ MainLoop:
 	if err != nil {
 		log.WithError(err).Error("Error encountered while closing Zeek writer.")
 	}
-
 }
-

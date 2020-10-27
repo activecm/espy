@@ -14,7 +14,11 @@ import (
 	"github.com/robfig/cron"
 )
 
-// Scheduled rolling log writer, expect timings
+// rotateOnMinute tells the rolling writer to rotate the
+// Zeek logs every minute rather than every hour. This may help
+// when debugging. Note that this *MUST* remain a const and not a var
+// so as not to create spaghetti code.
+const rotateOnMinute = false
 
 // RollingWriter is our continuous writer, expects
 // packet sessions in and will print to a spool file
@@ -23,7 +27,6 @@ type RollingWriter struct {
 	zeekDir     string
 	spoolDir    string
 	spoolFile   string
-	debug       bool
 	scheduler   *cron.Cron
 	file        *os.File
 	rotateMutex *sync.Mutex
@@ -31,9 +34,8 @@ type RollingWriter struct {
 }
 
 // CreateRollingWritingSystem constructs new rolling writer system
-func CreateRollingWritingSystem(tgtDir string, crashFunc func(), debug bool) (output.ECSWriter, error) {
+func CreateRollingWritingSystem(tgtDir string, crashFunc func()) (output.ECSWriter, error) {
 	w := &RollingWriter{}
-	w.debug = debug
 	w.zeekDir = tgtDir
 	w.spoolDir = tgtDir + "/ecs-spool"
 	w.spoolFile = w.spoolDir + "/conn.log"
@@ -54,7 +56,7 @@ func CreateRollingWritingSystem(tgtDir string, crashFunc func(), debug bool) (ou
 
 func (w *RollingWriter) initWriterSchedule() (err error) {
 	w.scheduler = cron.New()
-	if w.debug {
+	if rotateOnMinute {
 		// Run every minute on the 0th second
 		err = w.scheduler.AddFunc("0 * * * * *", w.rotateLogsWrapper)
 		log.Infof("Rotating logs every minute at: %s", w.spoolDir)
@@ -174,12 +176,12 @@ func (w *RollingWriter) rotateLogs(close bool) error {
 }
 
 func (w *RollingWriter) getOutputFilename(fileTime time.Time) string {
-	if w.debug {
+	if rotateOnMinute {
 		startTime := fileTime.Add(-1 * time.Minute)
 		return w.zeekDir + startTime.Format("/2006-01-02") + "/" +
 			"conn." + startTime.Format("15:04:00") + "-" +
 			fileTime.Format("15:04:05") + ".log.gz"
-	}
+	} // else rotate on the hour
 	startTime := fileTime.Add(-1 * time.Hour)
 	return w.zeekDir + startTime.Format("/2006-01-02") + "/" +
 		"conn." + startTime.Format("15:00:00") + "-" +

@@ -9,16 +9,14 @@ import (
 
 func TestGetOutputFileName(t *testing.T) {
 	var testStr string
-	var debugTestStr string
 	currTime := time.Date(int(2020), time.April, int(20), int(16), int(20), int(0), int(0), time.UTC)
 
-	w, err := CreateRollingWritingSystem("/opt/zeek/logs", func() {}, false)
+	w, err := CreateRollingWritingSystem("/opt/zeek/logs", func() {})
 	if err != nil {
 		t.Error(err)
 	}
 
 	timeStr := "/opt/zeek/logs/2020-04-20/conn.15:00:00-16:00:00.log.gz"
-	debugTimeStr := "/opt/zeek/logs/2020-04-20/conn.16:19:00-16:20:00.log.gz"
 
 	testWr, ok := w.(*RollingWriter)
 
@@ -27,14 +25,9 @@ func TestGetOutputFileName(t *testing.T) {
 	}
 
 	testWr.zeekDir = "/opt/zeek/logs"
-
-	testWr.debug = false
 	testStr = testWr.getOutputFilename(currTime)
-	testWr.debug = true
-	debugTestStr = testWr.getOutputFilename(currTime)
 
 	assert.Equal(t, timeStr, testStr, "The file paths should be equal")
-	assert.Equal(t, debugTimeStr, debugTestStr, "The file paths should be equal")
 }
 
 /*

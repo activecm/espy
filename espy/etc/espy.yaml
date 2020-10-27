@@ -1,0 +1,55 @@
+# Redis Connection Details
+# Espy uses Redis to collect network logs from individual agents. This section
+# configures the Espy service to connect to Redis and begin processing
+# the incoming logs.
+Redis:
+  # Ex: Host: "127.0.0.1:6379"
+  Host: ""
+  # Ex: User: "net-receiver"
+  User: ""
+  # Ex: Password: "net-reciever's password"
+  Password: ""
+  # TLS should be enabled if Redis is running on a separate machine
+  TLS:
+    Enabled: false
+    # If set, Espy will check the Redis certificate's hostname and signatures
+    VerifyCertificate: false
+    #If set, Espy will use the provided CA file instead of the system's CA's
+    CAFile: ""
+
+# Elasticsearch Connection Details
+# Espy will forward incoming network logs from Redis onto Elasticsearch
+# if the Elasticsearch Host is set.
+Elasticsearch:
+  # Ex: Host: "127.0.0.1:9200"
+  Host: ""
+  # Ex: User: "elastic"
+  User: ""
+  # Ex: Password: "elatic's password"
+  Password: ""
+  # TLS should be enabled if Redis is running on a separate machine
+  TLS:
+    Enabled: false
+    # If set, Espy will check the ES certificate's hostname and signatures
+    VerifyCertificate: false
+    #If set, Espy will use the provided CA file instead of the system's CA's
+    CAFile: ""
+
+# Zeek Output Details
+# Espy writes incoming network logs out to Zeek files for processing
+# with tools compatible with Zeek's TSV file format
+Zeek:
+  # Path to write Zeek files to. Environment variables are supported.
+  # Ex: "$HOME/zeek/logs"
+  Path: "/opt/zeek/logs"
+  # If set to false, Espy will write every log entry to the same file
+  # rather than hourly rotated files
+  RotateLogs: true
+
+# Espy log level controls how much Espy writes to stdout
+# Fatal: 1; Only log errors that result in crashing
+# Error: 2; Log critical errors as well
+# Warn:  3; Log all errors
+# Info:  4; Verbose output
+# Debug: 5; Very verbose. May impact performance.
+LogLevel: 3

@@ -23,15 +23,13 @@ type StandardWriter struct {
 	spoolDir    string
 	outFileName string
 	spoolFile   string
-	debug       bool
 	file        *os.File
 }
 
 // CreateStandardWritingSystem Creates a single shot writer system
-func CreateStandardWritingSystem(tgtDir string, debug bool) (output.ECSWriter, error) {
+func CreateStandardWritingSystem(tgtDir string) (output.ECSWriter, error) {
 	var err error
 	w := &StandardWriter{}
-	w.debug = debug
 	w.zeekDir = tgtDir
 	w.spoolDir = tgtDir + "/ecs-spool"
 	w.outFileName = w.zeekDir + "/conn.log.gz"
