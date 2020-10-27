@@ -4,11 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -68,7 +65,7 @@ func main() {
 	// create context to coordinate async shutdown
 	ctx, ctxCancelFunc := linkContextToInterrupt(context.Background())
 
-	// set up redis connection
+	// set up Redis connection
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     conf.S.Redis.Host,
 		Username: conf.S.Redis.User,
@@ -78,12 +75,13 @@ func main() {
 		redisClient.Options().TLSConfig = conf.R.Redis.TLSConfig
 	}
 
-	// set up elastic connection
-	esClient := &http.Client{}
-	if conf.R.Elasticsearch.TLSConfig != nil {
-		esClient.Transport = &http.Transport{
-			TLSClientConfig: conf.R.Elasticsearch.TLSConfig,
-		}
+	// set up Elasticsearch connection
+	var esWriter output.JSONWriter
+	if conf.S.Elasticsearch.Host != "" {
+		log.Infof("Enabling Elasticsearch output at %s", conf.S.Elasticsearch.Host)
+		esWriter = output.NewElasticWriter(conf.S.Elasticsearch, conf.R.Elasticsearch)
+	} else {
+		log.Info("Disabling Elasticsearch output")
 	}
 
 	// set up zeek file writer
@@ -123,22 +121,10 @@ MainLoop:
 		}
 
 		//send message to elasticsearch
-		if conf.S.Elasticsearch.Host != "" {
-			reader := strings.NewReader(netMessage[1])
-			today := time.Now()
-			esHostURL := fmt.Sprintf("https://%s/sysmon-%s/_doc", conf.S.Elasticsearch.Host, today.Format("2006-01-02"))
-			request, err := http.NewRequest("POST", esHostURL, reader)
+		if esWriter != nil {
+			err = esWriter.AddSessionToWriter(netMessage[1])
 			if err != nil {
-				log.WithError(err).WithField("input", netMessage[1]).Error("Could not create HTTP request to handoff data to Elasticsearch.")
-			}
-			request.SetBasicAuth(conf.S.Elasticsearch.User, conf.S.Elasticsearch.Password)
-			request.Header.Set("Content-Type", "application/json")
-			resp, err := esClient.Do(request)
-			if err != nil || resp == nil || resp.StatusCode < 200 || resp.StatusCode > 299 {
 				log.WithError(err).WithField("input", netMessage[1]).Error("Could not connect to Elasticsearch.")
-			} else {
-				log.Debug(fmt.Sprintf("[%d] OK %s Data transferred to Elasticsearch", resp.StatusCode, today.Format("2006-01-02 3:04.000")))
-				resp.Body.Close()
 			}
 		}
 
