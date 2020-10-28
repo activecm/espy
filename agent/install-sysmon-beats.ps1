@@ -2,52 +2,44 @@
 
 .SYNOPSIS
 This Powershell script installs and configures Microsoft Sysinternals Sysmon and Elastic Winlogbeat with the aim
-of shipping network connection events to a centralized Elasticsearch server.
+of shipping network connection events to a centralized Redis server.
 
 .DESCRIPTION
 This script install Microsoft Sysinternals Sysmon and Elastic Winlogbeat to the Windows Program Files directory.
 Sysmon is then configured to report network connections and Winlogbeat is configured to send connection logs to
-the desired Elasticsearch server.
+the desired Redis server.
 
-.PARAMETER ESHost
-The IP address or hostname of the Elasticsearch server to send connection logs. This should not contain a protocol descriptor such as "https://".
+.PARAMETER RedisHost
+The IP address or hostname of the Redis server to send connection logs.
 
-.PARAMETER ESPort
-The port on which the Elasticsearch server is listening. Defaults to TCP 9200.
+.PARAMETER RedisPort
+The port on which the Redis server is listening. Defaults to TCP 6379.
 
-.PARAMETER ESUsername
+.PARAMETER RedisPassword
 Warning: Insecure!
-The username used to authenticate to the Elasticsearch server. If ESUsername is not specified,
-the script will ask for the username at runtime. In order to avoid recording the Elasticsearch
-username, consider editing this file. Change the line `[string]$ESUsername="",` to
-`[string]$ESUsername="YOUR_ELASTIC_USERNAME_HERE",.
-
-.PARAMETER ESPassword
-Warning: Insecure!
-The password used to authenticate to the Elasticsearch server. If ESPassword is not specified,
-the script will ask for the password at runtime. In order to avoid recording the Elasticsearch
-password, consider editing this file. Change the line `[string]$ESPassword="",` to
-`[string]$ESPassword="YOUR_ELASTIC_PASSWORD_HERE",.
+The password for the Redis server's default account. If RedisPassword is not specified,
+the script will ask for the password at runtime. In order to avoid recording the Redis
+password, consider editing this file. Change the line `[string]$RedisPassword="",` to
+`[string]$RedisPassword="YOUR_ELASTIC_PASSWORD_HERE",`.
 
 .EXAMPLE
-# Asks for Elasticsearch authentication details at runtime
-.\install-sysmon-beats.ps1 my-es-host.com 9200
+# Asks for Redis authentication details at runtime
+.\install-sysmon-beats.ps1 my-redis-host.com 6379
 
-# Reads Elasticsearch authentication details from the command line aguments
-.\install-sysmon-beats.ps1 my-es-host.com 9200 elastic elastic_password
+# Reads Redis authentication details from the command line aguments
+.\install-sysmon-beats.ps1 my-redis-host.com 6379 redis_password
 
 .NOTES
-The Elasticsearch credentials are stored locally using Elastic Winlogbeat's secure
-storage facilities. The ESUsername and ESPassword parameters should not be passed
-into the script in a secure environment. Instead, either leave the credentials blank and
+The Redis credentials are stored locally using Elastic Winlogbeat's secure
+storage facilities. The RedisPassword should not be passed into the script
+in a secure environment. Instead, either leave the credentials blank and
 enter the credentials during the installation process, or edit the parameters' default values in the script.
 #>
 
 param (
-    [Parameter(Mandatory=$true)][string]$ESHost,
-    [string]$ESPort="9200",
-    [string]$ESUsername="",
-    [string]$ESPassword=""
+    [Parameter(Mandatory=$true)][string]$RedisHost,
+    [string]$RedisPort="6379",
+    [string]$RedisPassword=""
 )
 
 if (-not (Test-Path "$Env:programfiles\Sysmon" -PathType Container)) {
@@ -142,15 +134,10 @@ if (-not (Test-Path "$Env:programfiles\winlogbeat*" -PathType Container)) {
 
 cd "$Env:programfiles\winlogbeat*\"
 .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore create
-if($ESUsername) {
-  Write-Output "$ESUsername" | .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore add ES_USERNAME --stdin
+if($RedisPassword) {
+  Write-Output "$RedisPassword" | .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore add REDIS_PASSWORD --stdin
 } else {
-  .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore add ES_USERNAME
-}
-if($ESPassword) {
-  Write-Output "$ESPassword" | .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore add ES_PASSWORD --stdin
-} else {
-  .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore add ES_PASSWORD
+  .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore add REDIS_PASSWORD
 }
 
 rm .\winlogbeat.yml
@@ -164,20 +151,11 @@ winlogbeat.event_logs:
           id: sysmon
           file: ${path.home}/module/sysmon/config/winlogbeat-sysmon.js
 
-setup.ilm.enabled: false
-setup.template.enabled: true
-setup.template.name: `"sysmon`"
-setup.template.pattern: `"sysmon-*`"
-
-output.elasticsearch:
+output.redis:
   hosts:
-    - https://${ESHost}:${ESPort}
-  index: `"sysmon-%{+YYYY.MM.dd}`"
-  username: `"`${ES_USERNAME}`"
-  password: `"`${ES_PASSWORD}`"
-  ssl:
-    enabled: true
-    verification_mode: none
+    - ${RedisHost}:${RedisPort}
+  key: "net-data:sysmon"
+  password: `"`${REDIS_PASSWORD}`"
 "@ > winlogbeat.yml
 PowerShell.exe -ExecutionPolicy UnRestricted -File .\install-service-winlogbeat.ps1
 Start-Service winlogbeat

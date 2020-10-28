@@ -1,54 +1,25 @@
 version: '3'
-volumes:
-  elasticsearch_persistent:
 services:
-  elasticsearch:
-    image: activecm-beaker/elasticsearch:${ELK_VERSION_TAG:-latest}
-    build: ./elasticsearch
-    restart: unless-stopped
-    environment:
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-    ports:
-      - "${ELASTIC_HTTP_PORT:-9200}:9200"
-    volumes:
-      - elasticsearch_persistent:/usr/share/elasticsearch/data
-      - ${BEAKER_CONFIG_DIR:-/etc/BeaKer/}certificates:/usr/share/elasticsearch/config/certificates
-
-  kibana:
-    image: activecm-beaker/kibana:${ELK_VERSION_TAG:-latest}
-    build: ./kibana
-    restart: unless-stopped
-    environment:
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-    ports:
-      - "${KIBANA_HTTP_PORT:-5601}:5601"
-    volumes:
-      - ${BEAKER_CONFIG_DIR:-/etc/BeaKer/}certificates:/usr/share/kibana/config/certificates
-    depends_on:
-      - elasticsearch
-
-  es-dump:
-    image: taskrabbit/elasticsearch-dump:v6.28.0
-    restart: "no"
-    environment:
-      - NODE_TLS_REJECT_UNAUTHORIZED=0
-    depends_on:
-      - elasticsearch
-    entrypoint: ["/bin/true"]
-
   redis-server:
     image: redis:6.0
     volumes:
-      - ${ESPY_CONFIG_DIR:-/etc/Espy}:/etc/Espy
+      - ${ESPY_CONFIG_DIR:-/etc/espy}:/etc/espy
     sysctls:
       net.core.somaxconn: 512
       net.ipv4.tcp_max_syn_backlog: 512
     ports:
       - "${ESPY_REDIS_PORT:-6379}:6379"
-    command: ["redis-server", "/etc/Espy/redis.conf"]
+    command: ["redis-server", "/etc/espy/redis.conf"]
 
-  redis-cli:
-    image: redis:6.0
+  espy:
+    image: quay.io/activecm/espy:${VERSION:-latest}
+    build: .
     volumes:
-      - ${ESPY_CONFIG_DIR:-/etc/Espy}:/etc/Espy
-    command: ["redis-cli", "-h", "redis-server"]
+        - ${ESPY_CONFIG_DIR:-/etc/espy}:/etc/espy
+        - ${ESPY_ZEEK_LOGS:-/opt/zeek/logs}:/opt/zeek/logs
+
+#  redis-cli:
+#    image: redis:6.0
+#    volumes:
+#      - ${ESPY_CONFIG_DIR:-/etc/espy}:/etc/espy
+#    command: ["redis-cli", "-h", "redis-server"]

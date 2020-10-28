@@ -4,11 +4,11 @@
 # the incoming logs.
 Redis:
   # Ex: Host: "127.0.0.1:6379"
-  Host: ""
-  # Ex: User: "joe.blow"
-  User: ""
+  Host: "redis-server:6379"
+  # Ex: User: "net-receiver"
+  User: "net-receiver"
   # Ex: Password: "password"
-  Password: ""
+  Password: "NET_RECEIVER_SECRET_PLACEHOLDER"
   # TLS should be enabled if Redis is running on a separate machine
   TLS:
     Enabled: false
