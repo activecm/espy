@@ -3,14 +3,13 @@
 set -e
 
 # These services are always built unless --no-build is passed in
-DOCKER_BUILD_SERVICES="elasticsearch kibana"
+DOCKER_BUILD_SERVICES="espy"
 # These services are always pulled unless --no-pull is passsed in
-DOCKER_PULL_SERVICES="es-dump"
+DOCKER_PULL_SERVICES="redis-server redis-client"
 # These images are exported in the deployment after running pulls/builds
 DOCKER_EXPORT_IMAGES=$(cat <<'HEREDOC'
-    activecm-beaker/elasticsearch:latest
-    activecm-beaker/kibana:latest
-    taskrabbit/elasticsearch-dump:v6.28.0
+    redis:6.0
+    quay.io/activecm/espy:latest
 HEREDOC
 )
 
@@ -20,8 +19,7 @@ pushd "$SCRIPT_DIR/../" > /dev/null
 
 __help() {
   cat <<HEREDOC
-This script generates an installer for BeaKer.
-The resulting file is not intended to be installed directly by customers.
+This script generates an installer for Espy.
 Usage:
   ${_NAME} [<arguments>]
 Options:
@@ -61,9 +59,9 @@ done
 
 # File/ Directory Names
 DOCKER_IMAGE_OUT=images-latest
-BEAKER_ARCHIVE=BeaKer
+ESPY_ARCHIVE=Espy
 
-STAGE_DIR="$SCRIPT_DIR/stage/$BEAKER_ARCHIVE"
+STAGE_DIR="$SCRIPT_DIR/stage/$ESPY_ARCHIVE"
 
 # Make sure we can use docker-compose
 shell-lib/docker/check_docker.sh || {
@@ -100,9 +98,9 @@ fi
 echo "Exporting docker images... This may take a few minutes."
 $SUDO docker save $DOCKER_EXPORT_IMAGES | gzip -c - > "$STAGE_DIR/${DOCKER_IMAGE_OUT}.tar.gz"
 
-echo "Creating BeaKer installer archive..."
+echo "Creating Espy installer archive..."
 # This has the result of only including the files we want
 # but putting them in a single directory so they extract nicely
-tar -C "$STAGE_DIR/.."  --exclude '.*' -chf "$SCRIPT_DIR/${BEAKER_ARCHIVE}.tar" $BEAKER_ARCHIVE
+tar -C "$STAGE_DIR/.."  --exclude '.*' -chf "$SCRIPT_DIR/${ESPY_ARCHIVE}.tar" $ESPY_ARCHIVE
 
 popd > /dev/null

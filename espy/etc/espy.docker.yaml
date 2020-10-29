@@ -2,10 +2,11 @@
 # Espy uses Redis to collect network logs from individual agents. This section
 # configures the Espy service to connect to Redis and begin processing
 # the incoming logs.
+# Do not change these settings if Espy is running with the provided Docker configuration.
 Redis:
   # Ex: Host: "127.0.0.1:6379"
   Host: "redis-server:6379"
-  # Ex: User: "net-receiver"
+  # Ex: User: "joe.blow"
   User: "net-receiver"
   # Ex: Password: "password"
   Password: "NET_RECEIVER_SECRET_PLACEHOLDER"
@@ -38,6 +39,9 @@ Elasticsearch:
 # Zeek Output Details
 # Espy writes incoming network logs out to Zeek files for processing
 # with tools compatible with Zeek's TSV file format
+# Do not change these settings if Espy is running with the provided Docker configuration.
+# To change the Zeek output folder while using the provided Docker configuration,
+# configure ESPY_ZEEK_LOGS in /etc/espy/env.
 Zeek:
   # Path to write Zeek files to. Environment variables are supported.
   # Ex: "$HOME/zeek/logs"
