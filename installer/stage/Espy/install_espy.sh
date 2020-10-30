@@ -34,12 +34,13 @@ trap '__int' INT
 . ./shell-lib/acmlib.sh
 normalize_environment
 
-ESPY_CONFIG_DIR="${ESPY_CONFIG_DIR:-/etc/espy/}"
+ESPY_CONFIG_DIR="${ESPY_CONFIG_DIR:-/etc/espy}"
+ESPY_ZEEK_LOGS="${ESPY_ZEEK_LOGS:-/opt/zeek/logs}"
 
 test_system () {
     status "Checking minimum requirements"
     require_supported_os
-    require_free_space_MB "$HOME" "/var/lib" "/etc" "/usr" 5120
+    require_free_space_MB "$HOME" "/var/lib" "/etc" "/usr" "/opt" 5120
 }
 
 install_docker () {
@@ -79,7 +80,7 @@ ensure_env_file_exists () {
 # Espy Settings
 #
 ESPY_CONFIG_DIR=${ESPY_CONFIG_DIR}
-#ESPY_ZEEK_LOGS=/alternative/zeek/output/path
+ESPY_ZEEK_LOGS=${ESPY_ZEEK_LOGS}
 ###############################################################################
 EOF
     fi
@@ -96,18 +97,18 @@ EOF
 
 ensure_config_files_exist () {
     # both espy and redis config files already exist
-    if [ -f "$ESPY_CONFIG_DIR/espy.conf" -a -f "$ESPY_CONFIG_DIR/redis.conf" ]; then
+    if [ -f "$ESPY_CONFIG_DIR/espy.yaml" -a -f "$ESPY_CONFIG_DIR/redis.conf" ]; then
         return
     fi
 
     # back up espy config if it exists but redis config does not
-    if [ -f "$ESPY_CONFIG_DIR/espy.conf" ]; then
-        mv "$ESPY_CONFIG_DIR/espy.conf.bak"
+    if [ -f "$ESPY_CONFIG_DIR/espy.yaml" ]; then
+        $SUDO mv "$ESPY_CONFIG_DIR/espy.yaml" "$ESPY_CONFIG_DIR/espy.yaml.bak"
     fi
 
     # back up redis config if it exists but espy config does not
     if [ -f "$ESPY_CONFIG_DIR/redis.conf" ]; then
-        mv "$ESPY_CONFIG_DIR/espy.conf.bak"
+        $SUDO mv "$ESPY_CONFIG_DIR/redis.conf" "$ESPY_CONFIG_DIR/redis.conf.bak"
     fi
 
     local redis_admin_pw=`generate_password`
@@ -115,7 +116,7 @@ ensure_config_files_exist () {
     local redis_net_agent_pw=`generate_password`
 
     local redis_template=`cat ./etc/redis.conf`
-    local espy_template=`cat ./etc/espy.docker.conf`
+    local espy_template=`cat ./etc/espy.docker.yaml`
 
     # do replacements in bash so as not to leak passwords
     local redis_config="${redis_template/ADMIN_SECRET_PLACEHOLDER/$redis_admin_pw}"
@@ -132,16 +133,29 @@ cat << EOF | $SUDO tee "$ESPY_CONFIG_DIR/espy.yaml" > /dev/null
 $espy_config
 EOF
 
+    $SUDO chown root:docker "$ESPY_CONFIG_DIR/redis.conf"
+    $SUDO chmod 640 "$ESPY_CONFIG_DIR/redis.conf"
+
+    $SUDO chown root:docker "$ESPY_CONFIG_DIR/espy.yaml"
+    $SUDO chmod 640 "$ESPY_CONFIG_DIR/espy.yaml"
+
+    echo2 "Redis passwords are stored in $ESPY_CONFIG_DIR/redis.conf."
     echo2 "Use the following password to connect WinLogBeat to the Espy Redis Server:"
-    printf "\t$redis_net_agent_pw\n" >&2
+    printf "\t$redis_net_agent_pw\n\n" >&2
+
+
+    # TODO: configure elasticsearch
 }
 
 ensure_certificates_exist () {
     # TODO: certificates for redis
+    return
 }
 
 install_espy () {
     status "Installing Redis and the Espy service"
+
+    $SUDO mkdir -p "$ESPY_ZEEK_LOGS"
 
     # Determine if the current user has permission to run docker
     local docker_sudo=""

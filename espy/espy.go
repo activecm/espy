@@ -46,6 +46,16 @@ func linkContextToInterrupt(ctx context.Context) (context.Context, context.Cance
 	return ctx, cancelCtx
 }
 
+//isContextCancelled returns true if a context has been cancelled
+func isContextCancelled(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+	}
+	return false
+}
+
 func main() {
 	// parse command line flags into globally defined options above
 	flag.Parse()
@@ -99,25 +109,18 @@ func main() {
 		return
 	}
 
-MainLoop:
-	for {
+	for !isContextCancelled(ctx) {
+
 		//try to get more data to process
 		netMessage, err := redisClient.BLPop(ctx, time.Second, "net-data:sysmon" /*, "net-data:packetbeat"*/).Result()
 
-		if err == redis.Nil || err == context.Canceled {
-			select {
-			case <-ctx.Done():
-				// Read timeout and exit signal received. Shut down.
-				log.WithError(err).Warn("Received exit signal. Shutting down.")
-				break MainLoop
-			default:
-				log.WithError(err).Debug("Timed out while polling Redis for data.")
-				// Read timeout but no exit signal, keep polling Redis
-				continue
-			}
+		if err == redis.Nil {
+			// Read timeout but no exit signal, keep polling Redis
+			log.WithError(err).Debug("Timed out while polling Redis for data.")
+			continue
 		} else if err != nil {
-			log.WithError(err).Error("Could not read data from Redis. Shutting down.")
-			break MainLoop
+			log.WithError(err).Error("Could not read data from Redis.")
+			break
 		}
 
 		//send message to elasticsearch
@@ -142,12 +145,13 @@ MainLoop:
 				log.WithError(err).WithField("input", netMessage[1]).Error("Could not read malformed ECS data")
 				continue
 			} else {
-				log.WithError(err).WithField("input", netMessage[1]).Error("Could not write Zeek data. Shutting down.")
+				log.WithError(err).WithField("input", netMessage[1]).Error("Could not write Zeek data.")
 				break
 			}
 		}
 	}
-
+	log.Warn("Shutting down.")
+	ctxCancelFunc() // in case we got here via an error rather than exit signal
 	err = zeekWriter.Close()
 	if err != nil {
 		log.WithError(err).Error("Error encountered while closing Zeek writer.")

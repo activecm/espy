@@ -2,11 +2,12 @@ version: '3'
 services:
   redis-server:
     image: redis:6.0
+    restart: unless-stopped
     volumes:
-      - ${ESPY_CONFIG_DIR:-/etc/espy}:/etc/espy
+      - ${ESPY_CONFIG_DIR:-/etc/espy}:/etc/espy:ro
     sysctls:
       net.core.somaxconn: 512
-      net.ipv4.tcp_max_syn_backlog: 512
+      #net.ipv4.tcp_max_syn_backlog: 512 works on ubuntu 18, but not 16
     ports:
       - "${ESPY_REDIS_PORT:-6379}:6379"
     command: ["redis-server", "/etc/espy/redis.conf"]
@@ -14,9 +15,11 @@ services:
   espy:
     image: quay.io/activecm/espy:${VERSION:-latest}
     build: .
+    restart: unless-stopped
     volumes:
-        - ${ESPY_CONFIG_DIR:-/etc/espy}:/etc/espy
-        - ${ESPY_ZEEK_LOGS:-/opt/zeek/logs}:/opt/zeek/logs
+      - /etc/localtime:/etc/localtime:ro
+      - ${ESPY_CONFIG_DIR:-/etc/espy}:/etc/espy:ro
+      - ${ESPY_ZEEK_LOGS:-/opt/zeek/logs}:/opt/zeek/logs
 
 #  redis-cli:
 #    image: redis:6.0

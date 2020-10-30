@@ -5,7 +5,7 @@ set -e
 # These services are always built unless --no-build is passed in
 DOCKER_BUILD_SERVICES="espy"
 # These services are always pulled unless --no-pull is passsed in
-DOCKER_PULL_SERVICES="redis-server redis-client"
+DOCKER_PULL_SERVICES="redis-server"
 # These images are exported in the deployment after running pulls/builds
 DOCKER_EXPORT_IMAGES=$(cat <<'HEREDOC'
     redis:6.0
