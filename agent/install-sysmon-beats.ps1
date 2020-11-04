@@ -154,6 +154,9 @@ winlogbeat.event_logs:
 output.redis:
   hosts:
     - ${RedisHost}:${RedisPort}
+  ssl:
+    enabled: true
+    verification_mode: none
   key: "net-data:sysmon"
   password: `"`${REDIS_PASSWORD}`"
 "@ > winlogbeat.yml

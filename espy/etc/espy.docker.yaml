@@ -12,7 +12,7 @@ Redis:
   Password: "NET_RECEIVER_SECRET_PLACEHOLDER"
   # TLS should be enabled if Redis is running on a separate machine
   TLS:
-    Enabled: false
+    Enable: true
     # If set, Espy will check the Redis certificate's hostname and signatures
     VerifyCertificate: false
     #If set, Espy will use the provided CA file instead of the system's CA's
@@ -30,7 +30,7 @@ Elasticsearch:
   Password: ""
   # TLS should be enabled if Redis is running on a separate machine
   TLS:
-    Enabled: false
+    Enable: false
     # If set, Espy will check the ES certificate's hostname and signatures
     VerifyCertificate: false
     #If set, Espy will use the provided CA file instead of the system's CA's

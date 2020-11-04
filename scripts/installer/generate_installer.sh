@@ -15,7 +15,7 @@ HEREDOC
 
 # Store the absolute path of the script's dir and switch to the top dir
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-pushd "$SCRIPT_DIR/../" > /dev/null
+pushd "$SCRIPT_DIR/../../" > /dev/null
 
 __help() {
   cat <<HEREDOC
@@ -64,12 +64,12 @@ ESPY_ARCHIVE=Espy
 STAGE_DIR="$SCRIPT_DIR/stage/$ESPY_ARCHIVE"
 
 # Make sure we can use docker-compose
-shell-lib/docker/check_docker.sh || {
+./scripts/shell-lib/docker/check_docker.sh || {
 	echo -e "\e[93mWARNING\e[0m: The generator did not detect a supported version of Docker."
 	echo "         A supported version of Docker can be installed by running"
 	echo "         the install_docker.sh script in the scripts directory."
 }
-shell-lib/docker/check_docker-compose.sh || {
+./scripts/shell-lib/docker/check_docker-compose.sh || {
 	echo -e "\e[93mWARNING\e[0m: The generator did not detect a supported version of Docker-Compose."
 	echo "         A supported version of Docker-Compose can be installed by running"
 	echo "         the install_docker.sh script in the scripts directory."

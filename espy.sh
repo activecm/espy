@@ -12,8 +12,8 @@ if [ ! -w "/var/run/docker.sock" -o ! -r ".env" ]; then
 fi
 
 # Check for pre-requisites
-shell-lib/docker/check_docker.sh || echo "You do not have a supported version of Docker installed."
-shell-lib/docker/check_docker-compose.sh || echo "You do not have a supported version of Docker-Compose installed."
+scripts/shell-lib/docker/check_docker.sh || echo "You do not have a supported version of Docker installed."
+scripts/shell-lib/docker/check_docker-compose.sh || echo "You do not have a supported version of Docker-Compose installed."
 
 # TMPDIR is erased even if -E is passed to sudo. https://serverfault.com/questions/478741/sudo-does-not-preserve-tmpdir
 # Need to explicitly pass tmpdir in if it exists.

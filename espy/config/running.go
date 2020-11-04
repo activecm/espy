@@ -6,6 +6,7 @@ import (
 	"github.com/blang/semver"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
+	"os"
 )
 
 type (
@@ -53,7 +54,9 @@ func parseStaticTLSConfig(staticTLS *TLSStaticCfg) *tls.Config {
 	if !staticTLS.VerifyCertificate {
 		tlsConf.InsecureSkipVerify = true
 	}
-	if len(staticTLS.CAFile) > 0 {
+
+	finfo, err := os.Stat(staticTLS.CAFile)
+	if err != nil && !finfo.IsDir() {
 		pem, err := ioutil.ReadFile(staticTLS.CAFile)
 		if err != nil {
 			log.WithField("file", staticTLS.CAFile).WithError(err).Error("Could not read CA file")

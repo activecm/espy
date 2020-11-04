@@ -10,6 +10,7 @@ services:
       #net.ipv4.tcp_max_syn_backlog: 512 works on ubuntu 18, but not 16
     ports:
       - "${ESPY_REDIS_PORT:-6379}:6379"
+    entrypoint: ""
     command: ["redis-server", "/etc/espy/redis.conf"]
 
   espy:
@@ -25,4 +26,5 @@ services:
 #    image: redis:6.0
 #    volumes:
 #      - ${ESPY_CONFIG_DIR:-/etc/espy}:/etc/espy
+#    entrypoint: ""
 #    command: ["redis-cli", "-h", "redis-server"]

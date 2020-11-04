@@ -31,7 +31,7 @@ trap '__err ${BASH_SOURCE##*/} $LINENO' ERR
 trap '__int' INT
 
 # Load the function library
-. ./shell-lib/acmlib.sh
+. ./scripts/shell-lib/acmlib.sh
 normalize_environment
 
 ESPY_CONFIG_DIR="${ESPY_CONFIG_DIR:-/etc/espy}"
@@ -45,7 +45,7 @@ test_system () {
 
 install_docker () {
     status "Installing Docker"
-    $SUDO shell-lib/docker/install_docker.sh
+    $SUDO ./scripts/shell-lib/docker/install_docker.sh
     echo2 ''
     if $SUDO docker ps &>/dev/null ; then
 		echo2 'Docker appears to be working, continuing.'
@@ -62,6 +62,8 @@ install_configuration () {
     ensure_env_file_exists
 
     ensure_config_files_exist
+
+    scripts/generate_tls_certs.sh
 }
 
 ensure_env_file_exists () {
