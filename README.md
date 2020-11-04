@@ -93,14 +93,14 @@ The script will then:
 
 ## Developer Information
 
-To generate a new release tarball, run `./installer/generate_installer.sh`.
+To generate a new release tarball, run `./scripts/installer/generate_installer.sh`.
 
 To build the Espy service natively:
 - Install Go 1.14 or later
 - Install `make`
 - Clone the git repository
 - `cd` into the `espy` subdirectory and run `make`
-- The resulting executable is loacated at `./espy/espy`
+- The resulting executable is located at `./espy/espy`
 
 To run the native Espy service:
 - Copy the `./espy/etc/espy.yaml` file to `/etc/espy/espy.yaml`
