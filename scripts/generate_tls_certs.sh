@@ -9,14 +9,11 @@ pushd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" > /dev/null
 # Load the function library
 . ./shell-lib/acmlib.sh
 normalize_environment
+require_sudo
 
 ESPY_CONFIG_DIR="${ESPY_CONFIG_DIR:-/etc/espy}"
 CERTIFICATE_DIR="$ESPY_CONFIG_DIR/certificates"
 
-SUDO=
-if ! can_write_or_create "$ESPY_CONFIG_DIR"; then
-	SUDO="sudo"
-fi
 
 PUBLIC_CRT="$CERTIFICATE_DIR/redis.crt"
 PRIVATE_KEY="$CERTIFICATE_DIR/redis.key"
@@ -26,7 +23,7 @@ main() {
 	# This check is unnecessary with mkdir -p but avoids an unconditional
 	# sudo that would force a password prompt every time
 	if [ ! -d "$CERTIFICATE_DIR" ]; then
-		echo "Certificate directory not found. Creating: $CERTIFICATE_DIR"
+		echo2 "Certificate directory not found. Creating: $CERTIFICATE_DIR"
 		$SUDO mkdir -p "$CERTIFICATE_DIR"
 	fi
 
@@ -35,7 +32,7 @@ main() {
 		if [ -f "$PUBLIC_CRT" ]; then $SUDO rm -f "$PUBLIC_CRT"; fi
 		if [ -f "$PRIVATE_KEY" ]; then $SUDO rm -f "$PRIVATE_KEY"; fi
 
-		echo "No certificates found. Generating..."
+		echo2 "No certificates found. Generating..."
 		$SUDO openssl req -x509 -newkey rsa:4096 \
 		-keyout "$PRIVATE_KEY" -out "$PUBLIC_CRT" \
 		-days 1825 -nodes > /dev/null 2>&1 << HERE
@@ -48,11 +45,11 @@ localhost
 
 HERE
     else
-        echo "Existing certificates found. Exiting..."
+        echo2 "Existing certificates found. Exiting..."
 	fi
 
     $SUDO chown -R root:docker "$CERTIFICATE_DIR"
-    $SUDO chmod 640 "$CERTIFICATE_DIR/*"
+    $SUDO chmod 640 "$CERTIFICATE_DIR"/*
 }
 
 # Ensure the certificates exist

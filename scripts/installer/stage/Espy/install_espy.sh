@@ -68,6 +68,10 @@ install_configuration () {
 
 ensure_env_file_exists () {
     if [ ! -f "$ESPY_CONFIG_DIR/env" ]; then
+        $SUDO touch "$ESPY_CONFIG_DIR/env"
+        $SUDO chown root:docker "$ESPY_CONFIG_DIR/env"
+        $SUDO chmod 640 "$ESPY_CONFIG_DIR/env"
+
         cat << EOF | $SUDO tee "$ESPY_CONFIG_DIR/env" > /dev/null
 ###############################################################################
 # By putting variables in this file, they will be made available to use in
@@ -87,15 +91,13 @@ ESPY_ZEEK_LOGS=${ESPY_ZEEK_LOGS}
 EOF
     fi
 
-    $SUDO chown root:docker "$ESPY_CONFIG_DIR/env"
-    $SUDO chmod 640 "$ESPY_CONFIG_DIR/env"
-
     if ! can_write_or_create ".env"; then
         sudo ln -sf "$ESPY_CONFIG_DIR/env" .env
     else
         ln -sf "$ESPY_CONFIG_DIR/env" .env
     fi
 }
+
 
 ensure_config_files_exist () {
     # both espy and redis config files already exist
@@ -113,10 +115,12 @@ ensure_config_files_exist () {
         $SUDO mv "$ESPY_CONFIG_DIR/redis.conf" "$ESPY_CONFIG_DIR/redis.conf.bak"
     fi
 
+    # generate new passwords
     local redis_admin_pw=`generate_password`
     local redis_net_recv_pw=`generate_password`
     local redis_net_agent_pw=`generate_password`
 
+    # load configuration templates
     local redis_template=`cat ./etc/redis.conf`
     local espy_template=`cat ./etc/espy.docker.yaml`
 
@@ -127,6 +131,79 @@ ensure_config_files_exist () {
 
     local espy_config="${espy_template/NET_RECEIVER_SECRET_PLACEHOLDER/$redis_net_recv_pw}"
 
+    # handle elasticsearch configuration
+    prompt2 "Would you like to forward incoming network logs to an Elasticsearch server (Y/N)"
+    if askYN; then
+        local elastic_host=""
+        local elastic_user=""
+        local elastic_password=""
+        local pw_confirmation="foobar"
+
+        read -e -p "Elasticsearch IP address or hostname: " elastic_host
+        elastic_host="\"$elastic_host\""
+
+        echo2 "Please enter the Elasticsearch user account credentials."
+        read -e -p "Elasticsearch username: " elastic_user
+        elastic_user="\"$elastic_user\""
+
+        while [ "$elastic_password" != "$pw_confirmation" ]; do
+            read -es -p "Elasticsearch password: " elastic_password
+            echo ""
+            read -es -p "Elasticsearch password (Confirmation): " pw_confirmation
+            echo ""
+        done
+        elastic_password="\"$elastic_password\""
+
+        local elastic_tls="true"
+        local elastic_tls_verify="false"
+        local elastic_tls_ca_file="\"\""
+
+        prompt2 "Disable TLS (Y/N)"
+        if askYN; then
+            elastic_tls="false"
+        else
+            prompt2 "Validate certificate hostname and signature (Y/N)"
+            if askYN; then
+                elastic_tls_verify="true"
+                prompt2 "Use a custom certificate authority (Y/N)"
+                if askYN; then
+                    read -e -p "CA file: " elastic_tls_ca_file
+                    elastic_tls_ca_file="\"$elastic_tls_ca_file\""
+                fi
+            fi
+        fi
+
+        local es_config=""
+        read -r -d '' es_config << EOF || true # read always returns 1 on HEREDOC's since NUL delim is never found
+Elasticsearch:
+  Host: $elastic_host
+  User: $elastic_user
+  Password: $elastic_password
+  TLS:
+    Enable: $elastic_tls
+    VerifyCertificate: $elastic_tls_verify
+    CAFile: $elastic_tls_ca_file
+EOF
+
+        # HACK: this horrible bash pattern replacement changes out the template Elasticsearch configuration.
+        # We should really invest in installing yq or another yaml manipulation tool.
+        # Bash patterns aren't regex. * means match any character (including newlines).
+        # $'\n' is ANSI C escape for newline (https://www.gnu.org/software/bash/manual/bash.html#ANSI_002dC-Quoting)
+        # https://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html#Shell-Parameter-Expansion
+        # Sed was not used since the replacement pattern contains confidential information and may be leaked by /proc.
+        espy_config="${espy_config/Elasticsearch:*CAFile:*\"$'\n'$'\n'/$es_config$'\n'$'\n'}"
+    fi
+
+    # create and permission configuration files
+    $SUDO touch "$ESPY_CONFIG_DIR/redis.conf"
+    $SUDO chown root:docker "$ESPY_CONFIG_DIR/redis.conf"
+    $SUDO chmod 640 "$ESPY_CONFIG_DIR/redis.conf"
+
+    $SUDO touch "$ESPY_CONFIG_DIR/espy.yaml"
+    $SUDO chown root:docker "$ESPY_CONFIG_DIR/espy.yaml"
+    $SUDO chmod 640 "$ESPY_CONFIG_DIR/espy.yaml"
+
+    # write out config files to secured files
     cat << EOF | $SUDO tee "$ESPY_CONFIG_DIR/redis.conf" > /dev/null
 $redis_config
 EOF
@@ -135,24 +212,12 @@ cat << EOF | $SUDO tee "$ESPY_CONFIG_DIR/espy.yaml" > /dev/null
 $espy_config
 EOF
 
-    $SUDO chown root:docker "$ESPY_CONFIG_DIR/redis.conf"
-    $SUDO chmod 640 "$ESPY_CONFIG_DIR/redis.conf"
-
-    $SUDO chown root:docker "$ESPY_CONFIG_DIR/espy.yaml"
-    $SUDO chmod 640 "$ESPY_CONFIG_DIR/espy.yaml"
-
+    # inform user of agent password
     echo2 "Redis passwords are stored in $ESPY_CONFIG_DIR/redis.conf."
     echo2 "Use the following password to connect WinLogBeat to the Espy Redis Server:"
     printf "\t$redis_net_agent_pw\n\n" >&2
-
-
-    # TODO: configure elasticsearch
 }
 
-ensure_certificates_exist () {
-    # TODO: certificates for redis
-    return
-}
 
 install_espy () {
     status "Installing Redis and the Espy service"
