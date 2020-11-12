@@ -3,7 +3,7 @@ package output
 import (
 	"errors"
 	"fmt"
-	"github.com/activecm/BeaKer/espy/config"
+	"github.com/activecm/espy/espy/config"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strings"

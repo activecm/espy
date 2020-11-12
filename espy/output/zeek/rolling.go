@@ -9,8 +9,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/activecm/BeaKer/espy/input"
-	"github.com/activecm/BeaKer/espy/output"
+	"github.com/activecm/espy/espy/input"
+	"github.com/activecm/espy/espy/output"
 	"github.com/robfig/cron"
 )
 

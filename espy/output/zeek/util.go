@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/activecm/BeaKer/espy/input"
+	"github.com/activecm/espy/espy/input"
 )
 
 var ErrMalformedECSSession = errors.New("Encountered malformed data in ECSSession")

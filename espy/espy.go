@@ -11,10 +11,10 @@ import (
 	"github.com/go-redis/redis/v8"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/activecm/BeaKer/espy/config"
-	"github.com/activecm/BeaKer/espy/input"
-	"github.com/activecm/BeaKer/espy/output"
-	"github.com/activecm/BeaKer/espy/output/zeek"
+	"github.com/activecm/espy/espy/config"
+	"github.com/activecm/espy/espy/input"
+	"github.com/activecm/espy/espy/output"
+	"github.com/activecm/espy/espy/output/zeek"
 )
 
 // command line flags

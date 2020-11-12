@@ -1,4 +1,4 @@
-module github.com/activecm/BeaKer/espy
+module github.com/activecm/espy/espy
 
 go 1.14
 
