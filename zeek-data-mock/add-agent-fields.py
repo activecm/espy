@@ -24,7 +24,7 @@ alice_ip = "10.55.200.10"
 alice_agent_hostname = "Alice"
 alice_agent_uuid = "779a5281-949d-4ae3-9de4-309c955f48c0"
 
-bob_ip = "10.55.200.11"
+bob_ip = "10.55.100.111"
 bob_agent_hostname = "Bob"
 bob_agent_uuid = "e59a5fc8-ebf5-4f82-b98e-ab2c7fad6099"
 
@@ -32,10 +32,10 @@ carol_agent_hostname = "Carol"
 carol_agent_uuid = "5934e4c5-9acb-498f-a706-b4b7200a47aa"
 
 def assign_agent(zfields: collections.OrderedDict) -> Tuple[str, str]:
-    if zfields["id.orig_h"].value == "10.55.200.10" or zfields["id.resp_h"].value == "10.55.200.10":
+    if zfields["id.orig_h"].value == alice_ip or zfields["id.resp_h"].value == alice_ip:
         agent_hostname = alice_agent_hostname
         agent_uuid = alice_agent_uuid
-    elif zfields["id.orig_h"].value == "10.55.200.11" or zfields["id.resp_h"].value == "10.55.200.11":
+    elif zfields["id.orig_h"].value == bob_ip or zfields["id.resp_h"].value == bob_ip:
         agent_hostname = bob_agent_hostname
         agent_uuid = bob_agent_uuid
     else:
