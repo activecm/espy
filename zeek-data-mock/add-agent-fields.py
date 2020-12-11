@@ -20,21 +20,35 @@ The values assigned to the two new fields depend on the configuration set inside
 ############################ agent configuration ############################
 
 # records with the following IPs will be assigned to their respective agents
+# Alice has a office PC and a work from home device. Both have the same IP address, but
+# they are connected to different networks.
 alice_ip = "10.55.200.10"
-alice_agent_hostname = "Alice"
-alice_agent_uuid = "779a5281-949d-4ae3-9de4-309c955f48c0"
+# Before `alice_late_time` alice makes connections using her office PC.
+alice_early_agent_hostname = "Alice Early"
+alice_early_agent_uuid = "779a5281-949d-4ae3-9de4-309c955f48c0"
+alice_late_time = 1517356800
+# After `alice_late_time`, alice makes connections using her work from home device.
+alice_late_agent_hostname = "Alice Late"
+alice_late_agent_uuid = "439264be-a146-4759-80f7-f4fb23b9b346"
 
+# Bob has a single IP on a single work from home device
 bob_ip = "10.55.100.111"
 bob_agent_hostname = "Bob"
 bob_agent_uuid = "e59a5fc8-ebf5-4f82-b98e-ab2c7fad6099"
 
+# All other IP addresses are to be understood as being on a different physical network.
+# Carol is assigned all other IP addresses.
 carol_agent_hostname = "Carol"
 carol_agent_uuid = "5934e4c5-9acb-498f-a706-b4b7200a47aa"
 
 def assign_agent(zfields: collections.OrderedDict) -> Tuple[str, str]:
     if zfields["id.orig_h"].value == alice_ip or zfields["id.resp_h"].value == alice_ip:
-        agent_hostname = alice_agent_hostname
-        agent_uuid = alice_agent_uuid
+        if float(zfields["ts"].value) < alice_late_time:
+            agent_hostname = alice_early_agent_hostname
+            agent_uuid = alice_early_agent_uuid
+        else:
+            agent_hostname = alice_late_agent_hostname
+            agent_uuid = alice_late_agent_uuid
     elif zfields["id.orig_h"].value == bob_ip or zfields["id.resp_h"].value == bob_ip:
         agent_hostname = bob_agent_hostname
         agent_uuid = bob_agent_uuid
