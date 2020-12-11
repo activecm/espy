@@ -132,67 +132,67 @@ ensure_config_files_exist () {
     local espy_config="${espy_template/NET_RECEIVER_SECRET_PLACEHOLDER/$redis_net_recv_pw}"
 
     # handle elasticsearch configuration
-    prompt2 "Would you like to forward incoming network logs to an Elasticsearch server (Y/N)"
-    if askYN; then
-        local elastic_host=""
-        local elastic_user=""
-        local elastic_password=""
-        local pw_confirmation="foobar"
+#     prompt2 "Would you like to forward incoming network logs to an Elasticsearch server (Y/N)"
+#     if askYN; then
+#         local elastic_host=""
+#         local elastic_user=""
+#         local elastic_password=""
+#         local pw_confirmation="foobar"
 
-        read -e -p "Elasticsearch IP address or hostname: " elastic_host
-        elastic_host="\"$elastic_host\""
+#         read -e -p "Elasticsearch IP address or hostname: " elastic_host
+#         elastic_host="\"$elastic_host\""
 
-        echo2 "Please enter the Elasticsearch user account credentials."
-        read -e -p "Elasticsearch username: " elastic_user
-        elastic_user="\"$elastic_user\""
+#         echo2 "Please enter the Elasticsearch user account credentials."
+#         read -e -p "Elasticsearch username: " elastic_user
+#         elastic_user="\"$elastic_user\""
 
-        while [ "$elastic_password" != "$pw_confirmation" ]; do
-            read -es -p "Elasticsearch password: " elastic_password
-            echo ""
-            read -es -p "Elasticsearch password (Confirmation): " pw_confirmation
-            echo ""
-        done
-        elastic_password="\"$elastic_password\""
+#         while [ "$elastic_password" != "$pw_confirmation" ]; do
+#             read -es -p "Elasticsearch password: " elastic_password
+#             echo ""
+#             read -es -p "Elasticsearch password (Confirmation): " pw_confirmation
+#             echo ""
+#         done
+#         elastic_password="\"$elastic_password\""
 
-        local elastic_tls="true"
-        local elastic_tls_verify="false"
-        local elastic_tls_ca_file="\"\""
+#         local elastic_tls="true"
+#         local elastic_tls_verify="false"
+#         local elastic_tls_ca_file="\"\""
 
-        prompt2 "Disable TLS (Y/N)"
-        if askYN; then
-            elastic_tls="false"
-        else
-            prompt2 "Validate certificate hostname and signature (Y/N)"
-            if askYN; then
-                elastic_tls_verify="true"
-                prompt2 "Use a custom certificate authority (Y/N)"
-                if askYN; then
-                    read -e -p "CA file: " elastic_tls_ca_file
-                    elastic_tls_ca_file="\"$elastic_tls_ca_file\""
-                fi
-            fi
-        fi
+#         prompt2 "Disable TLS (Y/N)"
+#         if askYN; then
+#             elastic_tls="false"
+#         else
+#             prompt2 "Validate certificate hostname and signature (Y/N)"
+#             if askYN; then
+#                 elastic_tls_verify="true"
+#                 prompt2 "Use a custom certificate authority (Y/N)"
+#                 if askYN; then
+#                     read -e -p "CA file: " elastic_tls_ca_file
+#                     elastic_tls_ca_file="\"$elastic_tls_ca_file\""
+#                 fi
+#             fi
+#         fi
 
-        local es_config=""
-        read -r -d '' es_config << EOF || true # read always returns 1 on HEREDOC's since NUL delim is never found
-Elasticsearch:
-  Host: $elastic_host
-  User: $elastic_user
-  Password: $elastic_password
-  TLS:
-    Enable: $elastic_tls
-    VerifyCertificate: $elastic_tls_verify
-    CAFile: $elastic_tls_ca_file
-EOF
+#         local es_config=""
+#         read -r -d '' es_config << EOF || true # read always returns 1 on HEREDOC's since NUL delim is never found
+# Elasticsearch:
+#   Host: $elastic_host
+#   User: $elastic_user
+#   Password: $elastic_password
+#   TLS:
+#     Enable: $elastic_tls
+#     VerifyCertificate: $elastic_tls_verify
+#     CAFile: $elastic_tls_ca_file
+# EOF
 
-        # HACK: this horrible bash pattern replacement changes out the template Elasticsearch configuration.
-        # We should really invest in installing yq or another yaml manipulation tool.
-        # Bash patterns aren't regex. * means match any character (including newlines).
-        # $'\n' is ANSI C escape for newline (https://www.gnu.org/software/bash/manual/bash.html#ANSI_002dC-Quoting)
-        # https://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html#Shell-Parameter-Expansion
-        # Sed was not used since the replacement pattern contains confidential information and may be leaked by /proc.
-        espy_config="${espy_config/Elasticsearch:*CAFile:*\"$'\n'$'\n'/$es_config$'\n'$'\n'}"
-    fi
+#         # HACK: this horrible bash pattern replacement changes out the template Elasticsearch configuration.
+#         # We should really invest in installing yq or another yaml manipulation tool.
+#         # Bash patterns aren't regex. * means match any character (including newlines).
+#         # $'\n' is ANSI C escape for newline (https://www.gnu.org/software/bash/manual/bash.html#ANSI_002dC-Quoting)
+#         # https://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html#Shell-Parameter-Expansion
+#         # Sed was not used since the replacement pattern contains confidential information and may be leaked by /proc.
+#         espy_config="${espy_config/Elasticsearch:*CAFile:*\"$'\n'$'\n'/$es_config$'\n'$'\n'}"
+#     fi
 
     # create and permission configuration files
     $SUDO touch "$ESPY_CONFIG_DIR/redis.conf"
