@@ -47,7 +47,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     # Use param values instead of $args because $args doesn't appear to get populated if param values are specified
     # Also set the ExecutionPolicy to Bypass otherwise this will likely fail as script
     # execution is disabled by default.
-    $arguments = "-ExecutionPolicy", "Bypass", "-File", $myinvocation.mycommand.definition , $RedisHost, $RedisPort
+    $arguments = "-ExecutionPolicy", "Bypass", "-File", $myinvocation.mycommand.definition, $RedisHost, $RedisPort
     if($RedisPassword) 
     {
         # Only add this argument if the user provided it, otherwise it will be blank and will cause an error
