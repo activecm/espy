@@ -42,6 +42,22 @@ param (
     [string]$RedisPassword=""
 )
 
+if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
+{
+    # Use param values instead of $args because $args doesn't appear to get populated if param values are specified
+    # Also set the ExecutionPolicy to Bypass otherwise this will likely fail as script
+    # execution is disabled by default.
+    $arguments = "-ExecutionPolicy", "Bypass", "-File", $myinvocation.mycommand.definition, $RedisHost, $RedisPort
+    if($RedisPassword) 
+    {
+        # Only add this argument if the user provided it, otherwise it will be blank and will cause an error
+        $arguments += $RedisPassword
+    }
+  
+    Start-Process -FilePath powershell -Verb runAs -ArgumentList $arguments
+    Break
+}
+
 if (-not (Test-Path "$Env:programfiles\Sysmon" -PathType Container)) {
   Invoke-WebRequest -OutFile Sysmon.zip https://download.sysinternals.com/files/Sysmon.zip
   Expand-Archive .\Sysmon.zip
@@ -139,6 +155,10 @@ if($RedisPassword) {
 } else {
   .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore add REDIS_PASSWORD
 }
+
+# Set ACL's of the $Env:ProgramData\winlogbeat folder to be the same as $Env:ProgramFiles\winlogbeat* (the main install path)
+# This helps ensure that "normal" users aren't able to access the $Env:ProgramData\winlogbeat folder
+Get-ACL -Path "$Env:ProgramFiles\winlogbeat*" | Set-ACL -Path "$Env:ProgramData\winlogbeat"
 
 rm .\winlogbeat.yml
 echo @"
