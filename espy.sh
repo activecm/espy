@@ -15,6 +15,10 @@ fi
 scripts/shell-lib/docker/check_docker.sh || echo "You do not have a supported version of Docker installed."
 scripts/shell-lib/docker/check_docker-compose.sh || echo "You do not have a supported version of Docker-Compose installed."
 
+# Ensure docker-compose can write to a temporary directory and execute scripts there
+source scripts/shell-lib/acmlib.sh
+require_executable_tmp_dir
+
 # TMPDIR is erased even if -E is passed to sudo. https://serverfault.com/questions/478741/sudo-does-not-preserve-tmpdir
 # Need to explicitly pass tmpdir in if it exists.
 if [ -n "$TMPDIR" ]; then
