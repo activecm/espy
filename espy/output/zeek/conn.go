@@ -10,19 +10,29 @@ import (
 	"github.com/activecm/espy/espy/input"
 )
 
-var ErrMalformedECSSession = errors.New("Encountered malformed data in ECSSession")
+var ErrMalformedECSSession = errors.New("encountered malformed data in ECSSession")
 
-func getConnHeader(headerTime time.Time) string {
-	return "#separator \\x09\n#set_separator\t,\n#empty_field\t(empty)\n" +
-		"#unset_field\t-\n#path\tconn\n#open\t" + headerTime.Format("2006-01-02-15-04-05") +
-		"\n#fields\tts\tuid\tid.orig_h\tid.orig_p\tid.resp_h\tid.resp_p\t" +
-		"proto\tservice\tduration\torig_bytes\tresp_bytes\tconn_state\t" +
-		"local_orig\tlocal_resp\tmissed_bytes\thistory\torig_pkts\t" +
-		"orig_ip_bytes\tresp_pkts\tresp_ip_bytes\ttunnel_parents\t" +
-		"agent_uuid\tagent_hostname\n" +
-		"#types\ttime\tstring\taddr\tport\taddr\tport\tenum\tstring\t" +
-		"interval\tcount\tcount\tstring\tbool\tbool\tcount\tstring\t" +
-		"count\tcount\tcount\tcount\tset[string]\tstring\tstring\n"
+func newConnHeader(headerTime time.Time) ZeekHeader {
+	return ZeekHeader{
+		Separator:    "\\x09",
+		SetSeparator: ",",
+		EmptyField:   "(empty)",
+		UnsetField:   "-",
+		Path:         "conn",
+		OpenTime:     headerTime,
+		Fields: []string{
+			"ts", "uid", "id.orig_h", "id.orig_p", "id.resp_h", "id.resp_p",
+			"proto", "service", "duration", "orig_bytes", "resp_bytes", "conn_state",
+			"local_orig", "local_resp", "missed_bytes", "history", "orig_pkts",
+			"orig_ip_bytes", "resp_pkts", "resp_ip_bytes", "tunnel_parents",
+			"agent_uuid", "agent_hostname",
+		},
+		Types: []string{
+			"time", "string", "addr", "port", "addr", "port", "enum", "string",
+			"interval", "count", "count", "string", "bool", "bool", "count", "string",
+			"count", "count", "count", "count", "set[string]", "string", "string",
+		},
+	}
 }
 
 func writeConnLines(outputData []*input.ECSRecord, fileWriter io.Writer) error {
@@ -78,7 +88,7 @@ func initConnSpoolFile(spoolFile, spoolDir string) (file *os.File, err error) {
 	file, err = os.OpenFile(spoolFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 
 	if err == nil {
-		fileHeader := getConnHeader(time.Now())
+		fileHeader := newConnHeader(time.Now()).String()
 		if _, err = file.Write([]byte(fileHeader)); err != nil {
 			return nil, err
 		}
