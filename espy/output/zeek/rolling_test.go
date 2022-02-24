@@ -24,8 +24,8 @@ func TestGetOutputFileName(t *testing.T) {
 		t.Error("Failed to cast system to writer object")
 	}
 
-	testWr.zeekDir = "/opt/zeek/logs"
-	testStr = testWr.getOutputFilename(currTime)
+	testWr.archiveDir = "/opt/zeek/logs"
+	testStr = testWr.getConnArchivePath(currTime)
 
 	assert.Equal(t, timeStr, testStr, "The file paths should be equal")
 }
@@ -53,7 +53,7 @@ func TestClose(t *testing.T) {
 }*/
 
 /*
-func TestAddSessionToWriter(t *testing.T) {
+func TestWriteECSRecords(t *testing.T) {
 	w, err := CreateRollingWritingSystem("/opt/zeek/logs", false)
 	if err != nil {
 		t.Error(err)
@@ -65,7 +65,7 @@ func TestAddSessionToWriter(t *testing.T) {
 
 	emptyData := make([]*fields.OutputRecord, 3)
 
-	err = testWr.AddSessionToWriter(emptyData)
+	err = testWr.WriteECSRecords(emptyData)
 
 	assert.Equal(t, err, nil, "Should return with no errors")
 }

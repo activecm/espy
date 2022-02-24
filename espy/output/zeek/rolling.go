@@ -24,28 +24,28 @@ const rotateOnMinute = false
 // packet sessions in and will print to a spool file
 // until the end of the hour and will rotate them
 type RollingWriter struct {
-	zeekDir     string
-	spoolDir    string
-	spoolFile   string
-	scheduler   *cron.Cron
-	file        *os.File
-	rotateMutex *sync.Mutex
-	crashFunc   func()
+	archiveDir    string
+	spoolDir      string
+	connSpoolPath string
+	connSpoolFile *os.File
+	scheduler     *cron.Cron
+	rotateMutex   *sync.Mutex
+	crashFunc     func()
 }
 
 // CreateRollingWritingSystem constructs new rolling writer system
 func CreateRollingWritingSystem(tgtDir string, crashFunc func()) (output.ECSWriter, error) {
 	w := &RollingWriter{}
-	w.zeekDir = tgtDir
+	w.archiveDir = tgtDir
 	w.spoolDir = tgtDir + "/ecs-spool"
-	w.spoolFile = w.spoolDir + "/conn.log"
+	w.connSpoolPath = w.spoolDir + "/conn.log"
 	w.rotateMutex = new(sync.Mutex)
 	w.crashFunc = crashFunc
 	err := w.initWriterSchedule()
 	if err != nil {
 		return nil, err
 	}
-	w.file, err = initSpoolFile(w.spoolFile, w.spoolDir)
+	w.connSpoolFile, err = initConnSpoolFile(w.connSpoolPath, w.spoolDir)
 	if err != nil {
 		return nil, err
 	}
@@ -73,12 +73,12 @@ func (w *RollingWriter) initWriterSchedule() (err error) {
 	return nil
 }
 
-// AddSessionToWriter adds additional sessions to our writer
-func (w *RollingWriter) AddSessionToWriter(outputdata []*input.ECSSession) error {
+// WriteECSRecords adds additional sessions to our writer
+func (w *RollingWriter) WriteECSRecords(outputdata []*input.ECSRecord) error {
 	w.rotateMutex.Lock()
 	defer w.rotateMutex.Unlock()
 	log.Debugf("Writing %d records", len(outputdata))
-	return writeLine(outputdata, w.file)
+	return writeConnLines(outputdata, w.connSpoolFile)
 }
 
 // Close will close out the file progress and save everything
@@ -104,7 +104,7 @@ func (w *RollingWriter) rotateLogs(close bool) error {
 	w.rotateMutex.Lock()
 	defer w.rotateMutex.Unlock()
 
-	outName := w.getOutputFilename(time.Now())
+	connArchivePath := w.getConnArchivePath(time.Now())
 	if !close {
 		log.Debug("About to rotate logs")
 	} else {
@@ -115,28 +115,28 @@ func (w *RollingWriter) rotateLogs(close bool) error {
 	closeStr := currTime.Format("#close	2006-01-02-15-04-05\n")
 	dirdate := currTime.Format("/2006-01-02")
 
-	if err := os.MkdirAll(w.zeekDir+dirdate, 0755); err != nil {
+	if err := os.MkdirAll(w.archiveDir+dirdate, 0755); err != nil {
 		return err
 	}
 
 	// Write closing string to our spool file
-	if _, err := w.file.Write([]byte(closeStr)); err != nil {
+	if _, err := w.connSpoolFile.Write([]byte(closeStr)); err != nil {
 		return err
 	}
 
 	// close the file out, prepare for reading
-	if err := w.file.Close(); err != nil {
+	if err := w.connSpoolFile.Close(); err != nil {
 		return err
 	}
 
-	srcFile, err := os.Open(w.spoolFile)
+	srcFile, err := os.Open(w.connSpoolPath)
 	if err != nil {
 		return err
 	}
 
 	// Open the gzip file
 	// make sure it doesn't exist
-	gzfile, err := os.Create(outName)
+	gzfile, err := os.Create(connArchivePath)
 	if err != nil {
 		return err
 	}
@@ -159,13 +159,13 @@ func (w *RollingWriter) rotateLogs(close bool) error {
 		return err
 	}
 
-	log.Infof("Log written: %s    size: %d", outName, size)
+	log.Infof("Log written: %s    size: %d", connArchivePath, size)
 
 	// Spool gets deleted, we must remake it if we're not closing
 
 	if !close {
 		log.Debug("About to re-create spool file")
-		w.file, err = initSpoolFile(w.spoolFile, w.spoolDir)
+		w.connSpoolFile, err = initConnSpoolFile(w.connSpoolPath, w.spoolDir)
 		if err != nil {
 			return err
 		}
@@ -175,15 +175,15 @@ func (w *RollingWriter) rotateLogs(close bool) error {
 	return nil
 }
 
-func (w *RollingWriter) getOutputFilename(fileTime time.Time) string {
+func (w *RollingWriter) getConnArchivePath(fileTime time.Time) string {
 	if rotateOnMinute {
 		startTime := fileTime.Add(-1 * time.Minute)
-		return w.zeekDir + startTime.Format("/2006-01-02") + "/" +
+		return w.archiveDir + startTime.Format("/2006-01-02") + "/" +
 			"conn." + startTime.Format("15:04:00") + "-" +
 			fileTime.Format("15:04:05") + ".log.gz"
 	} // else rotate on the hour
 	startTime := fileTime.Add(-1 * time.Hour)
-	return w.zeekDir + startTime.Format("/2006-01-02") + "/" +
+	return w.archiveDir + startTime.Format("/2006-01-02") + "/" +
 		"conn." + startTime.Format("15:00:00") + "-" +
 		fileTime.Format("15:00:00") + ".log.gz"
 }

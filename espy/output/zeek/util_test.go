@@ -24,7 +24,7 @@ func TestGetHeader(t *testing.T) {
 		"interval\tcount\tcount\tstring\tbool\tbool\tcount\tstring\t" +
 		"count\tcount\tcount\tcount\tset[string]\tstring\tstring\n"
 
-	resStr := getHeader(currTime)
+	resStr := getConnHeader(currTime)
 
 	assert.Equal(t, expectedStr, resStr, "The header strings should be equal")
 }

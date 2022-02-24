@@ -12,7 +12,7 @@ import (
 
 var ErrMalformedECSSession = errors.New("Encountered malformed data in ECSSession")
 
-func getHeader(headerTime time.Time) string {
+func getConnHeader(headerTime time.Time) string {
 	return "#separator \\x09\n#set_separator\t,\n#empty_field\t(empty)\n" +
 		"#unset_field\t-\n#path\tconn\n#open\t" + headerTime.Format("2006-01-02-15-04-05") +
 		"\n#fields\tts\tuid\tid.orig_h\tid.orig_p\tid.resp_h\tid.resp_p\t" +
@@ -25,12 +25,12 @@ func getHeader(headerTime time.Time) string {
 		"count\tcount\tcount\tcount\tset[string]\tstring\tstring\n"
 }
 
-func writeLine(outputData []*input.ECSSession, fileWriter io.Writer) error {
+func writeConnLines(outputData []*input.ECSRecord, fileWriter io.Writer) error {
 	if len(outputData) == 0 {
 		return nil
 	}
 
-	writeString, err := outputRecordsToString(outputData)
+	writeString, err := formatECSAsConnTSV(outputData)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func writeLine(outputData []*input.ECSSession, fileWriter io.Writer) error {
 	return nil
 }
 
-func outputRecordsToString(outputData []*input.ECSSession) (output string, err error) {
+func formatECSAsConnTSV(outputData []*input.ECSRecord) (output string, err error) {
 	for _, data := range outputData {
 		goStartTime, err := time.Parse(time.RFC3339Nano, data.RFCTimestamp)
 		if err != nil {
@@ -67,9 +67,9 @@ func outputRecordsToString(outputData []*input.ECSSession) (output string, err e
 	return output, err
 }
 
-// initSpoolFile will create and setup our spool directory
+// initConnSpoolFile will create and setup our spool directory
 // for buffering incoming connection logs
-func initSpoolFile(spoolFile, spoolDir string) (file *os.File, err error) {
+func initConnSpoolFile(spoolFile, spoolDir string) (file *os.File, err error) {
 	err = os.MkdirAll(spoolDir, 0755)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func initSpoolFile(spoolFile, spoolDir string) (file *os.File, err error) {
 	file, err = os.OpenFile(spoolFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 
 	if err == nil {
-		fileHeader := getHeader(time.Now())
+		fileHeader := getConnHeader(time.Now())
 		if _, err = file.Write([]byte(fileHeader)); err != nil {
 			return nil, err
 		}

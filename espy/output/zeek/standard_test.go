@@ -17,8 +17,8 @@ func TestConstructor(t *testing.T) {
 		t.Error("System failed to cast to Standard Writer")
 	}
 
-	assert.Equal(t, tstWr.spoolFile, "/opt/zeek/logs/flow-spool/conn.log", "The strings should be equal")
-	assert.Equal(t, tstWr.outFileName, "/opt/zeek/logs/conn.log.gz", "The strings should be equal")
+	assert.Equal(t, tstWr.connSpoolPath, "/opt/zeek/logs/flow-spool/conn.log", "The strings should be equal")
+	assert.Equal(t, tstWr.connArchivePath, "/opt/zeek/logs/conn.log.gz", "The strings should be equal")
 }
 
 func TestClosing(t *testing.T) {

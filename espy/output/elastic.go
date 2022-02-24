@@ -3,11 +3,12 @@ package output
 import (
 	"errors"
 	"fmt"
-	"github.com/activecm/espy/espy/config"
-	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/activecm/espy/espy/config"
+	log "github.com/sirupsen/logrus"
 )
 
 type ElasticWriter struct {
@@ -36,8 +37,8 @@ func (e ElasticWriter) targetIndex() string {
 	return fmt.Sprintf("sysmon-%s", today.Format("2006-01-02"))
 }
 
-//AddSessionToWriter sends the outputData to Elasticsearch
-func (e ElasticWriter) AddSessionToWriter(outputData string) error {
+//WriteECSRecords sends the outputData to Elasticsearch
+func (e ElasticWriter) WriteECSRecords(outputData string) error {
 	targetIndex := e.targetIndex()
 	esHostURL := fmt.Sprintf("https://%s/%s/_doc", e.Host, e.targetIndex())
 	reader := strings.NewReader(outputData)

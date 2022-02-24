@@ -125,21 +125,21 @@ func main() {
 
 		//send message to elasticsearch
 		if esWriter != nil {
-			err = esWriter.AddSessionToWriter(netMessage[1])
+			err = esWriter.WriteECSRecords(netMessage[1])
 			if err != nil {
 				log.WithError(err).WithField("input", netMessage[1]).Error("Could not connect to Elasticsearch.")
 			}
 		}
 
 		//parse data and send it to zeek writer
-		ecsData := input.ECSSession{}
+		ecsData := input.ECSRecord{}
 		err = json.Unmarshal([]byte(netMessage[1]), &ecsData)
 		if err != nil {
 			log.WithError(err).WithField("input", netMessage[1]).Error("Could not parse JSON data.")
 			continue
 		}
 
-		err = zeekWriter.AddSessionToWriter([]*input.ECSSession{&ecsData})
+		err = zeekWriter.WriteECSRecords([]*input.ECSRecord{&ecsData})
 		if err != nil {
 			if err == zeek.ErrMalformedECSSession {
 				log.WithError(err).WithField("input", netMessage[1]).Error("Could not read malformed ECS data")
