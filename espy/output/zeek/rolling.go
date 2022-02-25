@@ -73,8 +73,8 @@ func (w *RollingWriter) initWriterSchedule() (err error) {
 	return nil
 }
 
-// WriteECSRecords adds additional sessions to our writer
-func (w *RollingWriter) WriteECSRecords(outputData []*input.ECSRecord) error {
+// WriteECSRecord adds additional sessions to our writer
+func (w *RollingWriter) WriteECSRecords(outputData []input.ECSRecord) error {
 	w.rotateMutex.Lock()
 	defer w.rotateMutex.Unlock()
 	log.Debugf("Writing %d records", len(outputData))

@@ -77,7 +77,7 @@ type ZeekTSVFile interface {
 	//Header returns a ZeekHeader struct detailing the format of this Zeek TSV file type
 	Header() ZeekHeader
 	//FormatLines formats Elastic Common Schema records as lines of this Zeek TSV file type
-	FormatLines(outputData []*input.ECSRecord) (output string, err error)
+	FormatLines(outputData []input.ECSRecord) (output string, err error)
 }
 
 //WriteTSVHeader writes out the header for a newly opened Zeek TSV file of the given type
@@ -90,7 +90,7 @@ func WriteTSVHeader(fileType ZeekTSVFile, fileWriter io.Writer) error {
 }
 
 //WriteTSVLines writes out Elastic Common Schema records as lines of the given Zeek TSV file type to the given writer
-func WriteTSVLines(fileType ZeekTSVFile, outputData []*input.ECSRecord, fileWriter io.Writer) error {
+func WriteTSVLines(fileType ZeekTSVFile, outputData []input.ECSRecord, fileWriter io.Writer) error {
 	if len(outputData) == 0 {
 		return nil
 	}

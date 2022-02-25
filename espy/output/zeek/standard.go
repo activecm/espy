@@ -43,7 +43,7 @@ func CreateStandardWritingSystem(tgtDir string) (output.ECSWriter, error) {
 }
 
 // WriteECSRecords adds more session data to current session
-func (w *StandardWriter) WriteECSRecords(outputData []*input.ECSRecord) error {
+func (w *StandardWriter) WriteECSRecords(outputData []input.ECSRecord) error {
 	log.Debugf("Writing %d records", len(outputData))
 	return WriteTSVLines(ConnTSVFile{}, outputData, w.connSpoolFile)
 }

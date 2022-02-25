@@ -125,7 +125,7 @@ func main() {
 
 		//send message to elasticsearch
 		if esWriter != nil {
-			err = esWriter.WriteECSRecords(netMessage[1])
+			err = esWriter.WriteECSRecords([]string{netMessage[1]})
 			if err != nil {
 				log.WithError(err).WithField("input", netMessage[1]).Error("Could not connect to Elasticsearch.")
 			}
@@ -139,7 +139,7 @@ func main() {
 			continue
 		}
 
-		err = zeekWriter.WriteECSRecords([]*input.ECSRecord{&ecsData})
+		err = zeekWriter.WriteECSRecords([]input.ECSRecord{ecsData})
 		if err != nil {
 			if err == input.ErrMalformedECSRecord {
 				log.WithError(err).WithField("input", netMessage[1]).Error("Could not read malformed ECS data")

@@ -31,7 +31,7 @@ func (c ConnTSVFile) Header() ZeekHeader {
 	}
 }
 
-func (c ConnTSVFile) FormatLines(outputData []*input.ECSRecord) (output string, err error) {
+func (c ConnTSVFile) FormatLines(outputData []input.ECSRecord) (output string, err error) {
 	for _, data := range outputData {
 		goStartTime, err := time.Parse(time.RFC3339Nano, data.RFCTimestamp)
 		if err != nil {
