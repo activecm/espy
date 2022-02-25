@@ -56,3 +56,11 @@ func (c ConnTSVFile) FormatLines(outputData []input.ECSRecord) (output string, e
 	}
 	return output, err
 }
+
+func (c ConnTSVFile) HandlesECSRecord(data input.ECSRecord) bool {
+	return data.Event.Provider == "sysmon" && data.Event.Code == "3"
+}
+
+func init() {
+	RegisteredTSVFiles = append(RegisteredTSVFiles, ConnTSVFile{})
+}

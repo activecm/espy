@@ -31,5 +31,7 @@ type ECSRecord struct {
 	}
 	Event struct {
 		//		Duration float64 // Not supported by sysmon/ winlogbeat. Use with packetbeat.
+		Provider string
+		Code     string
 	}
 }

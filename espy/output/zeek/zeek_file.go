@@ -82,6 +82,22 @@ type ZeekTSVFile interface {
 	HandlesECSRecord(data input.ECSRecord) bool
 }
 
+var RegisteredTSVFiles []ZeekTSVFile
+
+//MapECSRecordsToTSVFiles maps the given Elastic Common Schema records to the Zeek files that
+//they should be written to
+func MapECSRecordsToTSVFiles(ecsRecords []input.ECSRecord) map[ZeekTSVFile][]input.ECSRecord {
+	outputMap := make(map[ZeekTSVFile][]input.ECSRecord)
+	for i := range ecsRecords {
+		for j := range RegisteredTSVFiles {
+			if RegisteredTSVFiles[j].HandlesECSRecord(ecsRecords[i]) {
+				outputMap[RegisteredTSVFiles[j]] = append(outputMap[RegisteredTSVFiles[j]], ecsRecords[i])
+			}
+		}
+	}
+	return outputMap
+}
+
 //WriteTSVHeader writes out the header for a newly opened Zeek TSV file of the given type
 func WriteTSVHeader(fileType ZeekTSVFile, fileWriter io.Writer) error {
 	fileHeader := fileType.Header().WithOpenTime(time.Now()).String()
