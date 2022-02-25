@@ -1,65 +1,45 @@
 package zeek
 
-// func TestGetOutputFileName(t *testing.T) {
-// 	var testStr string
-// 	currTime := time.Date(int(2020), time.April, int(20), int(16), int(20), int(0), int(0), time.UTC)
+import (
+	"path"
+	"testing"
+	"time"
 
-// 	w, err := CreateRollingWritingSystem("/opt/zeek/logs", func() {})
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
+	"github.com/benbjohnson/clock"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/require"
+)
 
-// 	timeStr := "/opt/zeek/logs/2020-04-20/conn.15:00:00-16:00:00.log.gz"
-
-// 	testWr, ok := w.(*RollingWriter)
-
-// 	if !ok {
-// 		t.Error("Failed to cast system to writer object")
-// 	}
-
-// 	testWr.archiveDir = "/opt/zeek/logs"
-// 	testStr = testWr.getArchivePath(ConnTSVFile{}.Header().Path, currTime)
-
-// 	assert.Equal(t, timeStr, testStr, "The file paths should be equal")
-// }
-
-/*
-func TestClose(t *testing.T) {
-	w, err := CreateRollingWritingSystem("/opt/zeek/logs", false)
-	if err != nil {
-		t.Error(err)
+func TestOpenRollingFiles(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	clock := clock.NewMock()
+	clock.Set(time.Date(2022, 02, 14, 16, 17, 18, 0, time.UTC))
+	_, err := CreateRollingWritingSystem(fs, clock, "/opt/zeek/logs", func() {})
+	require.Nil(t, err, "Should be able to open spool files")
+	for _, zeekFileType := range RegisteredTSVFileTypes {
+		zeekPath := zeekFileType.Header().Path
+		spoolPath := path.Join("/opt/zeek/logs", "ecs-spool", zeekPath+".log")
+		testVal, testErr := afero.Exists(fs, spoolPath)
+		require.Nil(t, testErr, "Spool file for "+zeekPath+" log should exist")
+		require.True(t, testVal, "Spool file for "+zeekPath+" log should exist")
 	}
-
-	tstWr, ok := w.(*RollingWriter)
-
-	if !ok {
-		t.Error("Failed to cast system to writer object")
-	}
-
-	tstWr.Close
-	err = tstWr.Close()
-	if err != nil {
-		t.Error("Error with closing: " + err.Error())
-	}
-
-	assert.Equal(t, err, nil, "Closing should return no errors")
-}*/
-
-/*
-func TestWriteECSRecords(t *testing.T) {
-	w, err := CreateRollingWritingSystem("/opt/zeek/logs", false)
-	if err != nil {
-		t.Error(err)
-	}
-	testWr, ok := w.(*RollingWriter)
-	if !ok {
-		t.Error("Failed to cast writer.System to RollingSystem for some reason")
-	}
-
-	emptyData := make([]*fields.OutputRecord, 3)
-
-	err = testWr.WriteECSRecords(emptyData)
-
-	assert.Equal(t, err, nil, "Should return with no errors")
 }
-*/
+
+func TestCloseRollingFiles(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	clock := clock.NewMock()
+	clock.Set(time.Date(2022, 02, 14, 16, 17, 18, 0, time.UTC))
+	w, err := CreateRollingWritingSystem(fs, clock, "/opt/zeek/logs", func() {})
+	require.Nil(t, err, "Should be able to open spool files")
+	clock.Set(time.Date(2022, 02, 14, 17, 17, 18, 0, time.UTC))
+	w.Close()
+	require.Nil(t, err, "Should be able to close spool files and open archive files")
+	for _, zeekFileType := range RegisteredTSVFileTypes {
+		zeekPath := zeekFileType.Header().Path
+		archivePath := path.Join("/opt/zeek/logs/2022-02-14", zeekPath+".16:00:00-17:00:00.log.gz")
+
+		testVal, testErr := afero.Exists(fs, archivePath)
+		require.Nil(t, testErr, "Archive file for "+zeekPath+" log should exist")
+		require.True(t, testVal, "Archive file for "+zeekPath+" log should exist")
+	}
+}

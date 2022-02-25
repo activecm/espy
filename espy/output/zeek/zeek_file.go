@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/activecm/espy/espy/input"
+	"github.com/benbjohnson/clock"
+	"github.com/spf13/afero"
 )
 
 //TSVHeader represents the header fields of a Zeek TSV document
@@ -99,8 +101,8 @@ func MapECSRecordsToTSVFiles(ecsRecords []input.ECSRecord) map[TSVFileType][]inp
 }
 
 //WriteTSVHeader writes out the header for a newly opened Zeek TSV file of the given type
-func WriteTSVHeader(fileType TSVFileType, fileWriter io.Writer) error {
-	fileHeader := fileType.Header().WithOpenTime(time.Now()).String()
+func WriteTSVHeader(fileType TSVFileType, openTime time.Time, fileWriter io.Writer) error {
+	fileHeader := fileType.Header().WithOpenTime(openTime).String()
 	if _, err := fileWriter.Write([]byte(fileHeader)); err != nil {
 		return err
 	}
@@ -139,21 +141,21 @@ func WriteTSVFooter(fileType TSVFileType, closeTime time.Time, fileWriter io.Wri
 //OpenTSVFile opens a Zeek TSV file at the given file path. If the file does not exist,
 //this function creates the file and writes out the appropriate Zeek TSV header as described
 //by the given Zeek file type.
-func OpenTSVFile(fileType TSVFileType, filePath string) (file *os.File, err error) {
+func OpenTSVFile(fs afero.Fs, clock clock.Clock, fileType TSVFileType, filePath string) (file afero.File, err error) {
 	directory := path.Dir(filePath)
-	err = os.MkdirAll(directory, 0755)
+	err = fs.MkdirAll(directory, 0755)
 	if err != nil {
 		return nil, err
 	}
 
-	file, err = os.OpenFile(filePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	file, err = fs.OpenFile(filePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err == nil {
-		err = WriteTSVHeader(fileType, file)
+		err = WriteTSVHeader(fileType, clock.Now(), file)
 		if err != nil {
 			return nil, err
 		}
 	} else if os.IsExist(err) {
-		file, err = os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
+		file, err = fs.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			return nil, err
 		}

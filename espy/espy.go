@@ -8,8 +8,10 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/go-redis/redis/v8"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 
 	"github.com/activecm/espy/espy/config"
 	"github.com/activecm/espy/espy/input"
@@ -98,10 +100,12 @@ func main() {
 	var zeekWriter output.ECSWriter
 	if conf.S.Zeek.RotateLogs {
 		zeekWriter, err = zeek.CreateRollingWritingSystem(
-			conf.S.Zeek.OutputPath, ctxCancelFunc,
+			afero.NewOsFs(), clock.New(), conf.S.Zeek.OutputPath, ctxCancelFunc,
 		)
 	} else {
-		zeekWriter, err = zeek.CreateStandardWritingSystem(conf.S.Zeek.OutputPath)
+		zeekWriter, err = zeek.CreateStandardWritingSystem(
+			afero.NewOsFs(), clock.New(), conf.S.Zeek.OutputPath,
+		)
 	}
 
 	if err != nil {

@@ -4,12 +4,13 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"os"
 	"path"
 	"sync"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 
 	"github.com/activecm/espy/espy/input"
 	"github.com/activecm/espy/espy/output"
@@ -29,7 +30,9 @@ type RollingWriter struct {
 	archiveDir string
 	spoolDir   string
 
-	spoolFiles map[TSVFileType]*os.File
+	fs         afero.Fs
+	clock      clock.Clock
+	spoolFiles map[TSVFileType]afero.File
 
 	scheduler   *cron.Cron
 	rotateMutex *sync.Mutex
@@ -37,18 +40,21 @@ type RollingWriter struct {
 }
 
 // CreateRollingWritingSystem constructs new rolling writer system
-func CreateRollingWritingSystem(tgtDir string, crashFunc func()) (output.ECSWriter, error) {
-	w := &RollingWriter{}
-	w.archiveDir = tgtDir
-	w.spoolDir = tgtDir + "/ecs-spool"
+func CreateRollingWritingSystem(fs afero.Fs, clock clock.Clock, tgtDir string, crashFunc func()) (output.ECSWriter, error) {
+	w := &RollingWriter{
+		fs:         fs,
+		clock:      clock,
+		archiveDir: tgtDir,
+		spoolDir:   path.Join(tgtDir, "ecs-spool"),
+		spoolFiles: make(map[TSVFileType]afero.File, len(RegisteredTSVFileTypes)),
+	}
 
-	w.spoolFiles = make(map[TSVFileType]*os.File, len(RegisteredTSVFileTypes))
 	for i := range RegisteredTSVFileTypes {
 		fileName := fmt.Sprintf("%s.log", RegisteredTSVFileTypes[i].Header().Path)
 		filePath := path.Join(w.spoolDir, fileName)
 
 		var err error
-		w.spoolFiles[RegisteredTSVFileTypes[i]], err = OpenTSVFile(RegisteredTSVFileTypes[i], filePath)
+		w.spoolFiles[RegisteredTSVFileTypes[i]], err = OpenTSVFile(fs, clock, RegisteredTSVFileTypes[i], filePath)
 		if err != nil {
 			return nil, err
 		}
@@ -130,7 +136,7 @@ func (w *RollingWriter) rotateLogs(close bool) error {
 	}
 
 	for zeekFileType, spoolFile := range w.spoolFiles {
-		currTime := time.Now()
+		currTime := w.clock.Now()
 
 		// Write the closing footer to our spool file
 		err := WriteTSVFooter(zeekFileType, currTime, spoolFile)
@@ -144,21 +150,21 @@ func (w *RollingWriter) rotateLogs(close bool) error {
 		}
 
 		// archive the spool file we just closed out
-		srcFile, err := os.Open(spoolFile.Name())
+		srcFile, err := w.fs.Open(spoolFile.Name())
 		if err != nil {
 			return err
 		}
 
 		dirDate := currTime.Format("2006-01-02")
 		datedArchiveDir := path.Join(w.archiveDir, dirDate)
-		if err := os.MkdirAll(datedArchiveDir, 0755); err != nil {
+		if err := w.fs.MkdirAll(datedArchiveDir, 0755); err != nil {
 			return err
 		}
 
 		archivePath := w.archivePathForFile(zeekFileType, currTime)
 
 		// Open the gzip file and make sure it doesn't exist
-		gzfile, err := os.Create(archivePath)
+		gzfile, err := w.fs.Create(archivePath)
 		if err != nil {
 			return err
 		}
@@ -175,7 +181,7 @@ func (w *RollingWriter) rotateLogs(close bool) error {
 			return err
 		}
 
-		if err = os.Remove(srcFile.Name()); err != nil {
+		if err = w.fs.Remove(srcFile.Name()); err != nil {
 			return err
 		}
 
@@ -184,7 +190,7 @@ func (w *RollingWriter) rotateLogs(close bool) error {
 		// Spool gets deleted, we must remake it if we're not closing
 		if !close {
 			log.Debug("About to re-create spool file")
-			w.spoolFiles[zeekFileType], err = OpenTSVFile(zeekFileType, spoolFile.Name())
+			w.spoolFiles[zeekFileType], err = OpenTSVFile(w.fs, w.clock, zeekFileType, spoolFile.Name())
 			if err != nil {
 				return err
 			}

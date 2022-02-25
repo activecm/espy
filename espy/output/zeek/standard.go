@@ -4,11 +4,11 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"os"
 	"path"
-	"time"
 
+	"github.com/benbjohnson/clock"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 
 	"github.com/activecm/espy/espy/input"
 	"github.com/activecm/espy/espy/output"
@@ -24,21 +24,26 @@ type StandardWriter struct {
 	archiveDir string
 	spoolDir   string
 
-	spoolFiles map[TSVFileType]*os.File
+	fs         afero.Fs
+	clock      clock.Clock
+	spoolFiles map[TSVFileType]afero.File
 }
 
 // CreateStandardWritingSystem Creates a single shot writer system
-func CreateStandardWritingSystem(tgtDir string) (output.ECSWriter, error) {
+func CreateStandardWritingSystem(fs afero.Fs, clock clock.Clock, tgtDir string) (output.ECSWriter, error) {
 	var err error
-	w := &StandardWriter{}
-	w.archiveDir = tgtDir
-	w.spoolDir = tgtDir + "/ecs-spool"
+	w := &StandardWriter{
+		fs:         fs,
+		clock:      clock,
+		archiveDir: tgtDir,
+		spoolDir:   path.Join(tgtDir, "/ecs-spool"),
+		spoolFiles: make(map[TSVFileType]afero.File, len(RegisteredTSVFileTypes)),
+	}
 
-	w.spoolFiles = make(map[TSVFileType]*os.File, len(RegisteredTSVFileTypes))
 	for i := range RegisteredTSVFileTypes {
 		fileName := fmt.Sprintf("%s.log", RegisteredTSVFileTypes[i].Header().Path)
 		filePath := path.Join(w.spoolDir, fileName)
-		w.spoolFiles[RegisteredTSVFileTypes[i]], err = OpenTSVFile(RegisteredTSVFileTypes[i], filePath)
+		w.spoolFiles[RegisteredTSVFileTypes[i]], err = OpenTSVFile(fs, clock, RegisteredTSVFileTypes[i], filePath)
 		if err != nil {
 			return nil, err
 		}
@@ -67,7 +72,7 @@ func (w *StandardWriter) Close() error {
 
 	for zeekFileType, spoolFile := range w.spoolFiles {
 		// Write the closing footer to our spool file
-		err := WriteTSVFooter(zeekFileType, time.Now(), spoolFile)
+		err := WriteTSVFooter(zeekFileType, w.clock.Now(), spoolFile)
 		if err != nil {
 			return err
 		}
@@ -78,7 +83,7 @@ func (w *StandardWriter) Close() error {
 		}
 
 		// archive the spool file we just closed out
-		srcFile, err := os.Open(spoolFile.Name())
+		srcFile, err := w.fs.Open(spoolFile.Name())
 		if err != nil {
 			return err
 		}
@@ -87,7 +92,7 @@ func (w *StandardWriter) Close() error {
 		archivePath := path.Join(w.archiveDir, archiveName)
 
 		// Open the gzip file and make sure it doesn't exist
-		gzfile, err := os.Create(archivePath)
+		gzfile, err := w.fs.Create(archivePath)
 		if err != nil {
 			return err
 		}
@@ -104,7 +109,7 @@ func (w *StandardWriter) Close() error {
 			return err
 		}
 
-		if err = os.Remove(srcFile.Name()); err != nil {
+		if err = w.fs.Remove(srcFile.Name()); err != nil {
 			return err
 		}
 
