@@ -7,10 +7,10 @@ import (
 	"github.com/activecm/espy/espy/input"
 )
 
-type ConnTSVFile struct{}
+type ConnTSV struct{}
 
-func (c ConnTSVFile) Header() ZeekHeader {
-	return ZeekHeader{
+func (c ConnTSV) Header() TSVHeader {
+	return TSVHeader{
 		Separator:    "\\x09",
 		SetSeparator: ",",
 		EmptyField:   "(empty)",
@@ -31,7 +31,7 @@ func (c ConnTSVFile) Header() ZeekHeader {
 	}
 }
 
-func (c ConnTSVFile) FormatLines(outputData []input.ECSRecord) (output string, err error) {
+func (c ConnTSV) FormatLines(outputData []input.ECSRecord) (output string, err error) {
 	for _, data := range outputData {
 		goStartTime, err := time.Parse(time.RFC3339Nano, data.RFCTimestamp)
 		if err != nil {
@@ -57,10 +57,10 @@ func (c ConnTSVFile) FormatLines(outputData []input.ECSRecord) (output string, e
 	return output, err
 }
 
-func (c ConnTSVFile) HandlesECSRecord(data input.ECSRecord) bool {
+func (c ConnTSV) HandlesECSRecord(data input.ECSRecord) bool {
 	return data.Event.Provider == "sysmon" && data.Event.Code == "3"
 }
 
 func init() {
-	RegisteredTSVFiles = append(RegisteredTSVFiles, ConnTSVFile{})
+	RegisteredTSVFileTypes = append(RegisteredTSVFileTypes, ConnTSV{})
 }

@@ -24,7 +24,7 @@ type StandardWriter struct {
 	archiveDir string
 	spoolDir   string
 
-	spoolFiles map[ZeekTSVFile]*os.File
+	spoolFiles map[TSVFileType]*os.File
 }
 
 // CreateStandardWritingSystem Creates a single shot writer system
@@ -34,11 +34,11 @@ func CreateStandardWritingSystem(tgtDir string) (output.ECSWriter, error) {
 	w.archiveDir = tgtDir
 	w.spoolDir = tgtDir + "/ecs-spool"
 
-	w.spoolFiles = make(map[ZeekTSVFile]*os.File, len(RegisteredTSVFiles))
-	for i := range RegisteredTSVFiles {
-		fileName := fmt.Sprintf("%s.log", RegisteredTSVFiles[i].Header().Path)
+	w.spoolFiles = make(map[TSVFileType]*os.File, len(RegisteredTSVFileTypes))
+	for i := range RegisteredTSVFileTypes {
+		fileName := fmt.Sprintf("%s.log", RegisteredTSVFileTypes[i].Header().Path)
 		filePath := path.Join(w.spoolDir, fileName)
-		w.spoolFiles[RegisteredTSVFiles[i]], err = OpenTSVFile(RegisteredTSVFiles[i], filePath)
+		w.spoolFiles[RegisteredTSVFileTypes[i]], err = OpenTSVFile(RegisteredTSVFileTypes[i], filePath)
 		if err != nil {
 			return nil, err
 		}

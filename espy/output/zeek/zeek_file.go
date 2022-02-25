@@ -12,8 +12,8 @@ import (
 	"github.com/activecm/espy/espy/input"
 )
 
-//ZeekHeader represents the header fields of a Zeek TSV document
-type ZeekHeader struct {
+//TSVHeader represents the header fields of a Zeek TSV document
+type TSVHeader struct {
 	Separator    string
 	SetSeparator string
 	EmptyField   string
@@ -25,14 +25,14 @@ type ZeekHeader struct {
 }
 
 //WithOpenTime returns a copy of the ZeekHeader with the given open_time
-func (z ZeekHeader) WithOpenTime(openTime time.Time) ZeekHeader {
+func (z TSVHeader) WithOpenTime(openTime time.Time) TSVHeader {
 	//z is passed by value here so we can just set the field and return it
 	z.OpenTime = openTime
 	return z
 }
 
 //String formats the ZeekHeader as the header of a Zeek TSV document
-func (z ZeekHeader) String() string {
+func (z TSVHeader) String() string {
 	var builder strings.Builder
 
 	//escape \\x09 to tab
@@ -65,33 +65,33 @@ func (z ZeekHeader) String() string {
 	return builder.String()
 }
 
-//FormatZeekTSVClose returns the close footer that is included at the end of each Zeek TSV file
-func FormatZeekTSVClose(header ZeekHeader, closeTime time.Time) string {
+//FormatTSVClose returns the close footer that is included at the end of each Zeek TSV file
+func FormatTSVClose(header TSVHeader, closeTime time.Time) string {
 	//escape \\x09 to tab
 	sep, _ := strconv.Unquote(fmt.Sprintf("\"%s\"", header.Separator))
 	return fmt.Sprintf("#%s%s%s\n", "close", sep, closeTime.Format("2006-01-02-15-04-05"))
 }
 
-//ZeekTSVFile provides methods for formatting ECSRecords as Zeek TSV entries
-type ZeekTSVFile interface {
+//TSVFileType provides methods for formatting ECSRecords as Zeek TSV entries
+type TSVFileType interface {
 	//Header returns a ZeekHeader struct detailing the format of this Zeek TSV file type
-	Header() ZeekHeader
+	Header() TSVHeader
 	//FormatLines formats Elastic Common Schema records as lines of this Zeek TSV file type
 	FormatLines(outputData []input.ECSRecord) (output string, err error)
 	//HandlesECSRecord turns true if the data in the given ECS record can be formatted as a line of this Zeek TSV file type
 	HandlesECSRecord(data input.ECSRecord) bool
 }
 
-var RegisteredTSVFiles []ZeekTSVFile
+var RegisteredTSVFileTypes []TSVFileType
 
 //MapECSRecordsToTSVFiles maps the given Elastic Common Schema records to the Zeek files that
 //they should be written to
-func MapECSRecordsToTSVFiles(ecsRecords []input.ECSRecord) map[ZeekTSVFile][]input.ECSRecord {
-	outputMap := make(map[ZeekTSVFile][]input.ECSRecord)
+func MapECSRecordsToTSVFiles(ecsRecords []input.ECSRecord) map[TSVFileType][]input.ECSRecord {
+	outputMap := make(map[TSVFileType][]input.ECSRecord)
 	for i := range ecsRecords {
-		for j := range RegisteredTSVFiles {
-			if RegisteredTSVFiles[j].HandlesECSRecord(ecsRecords[i]) {
-				outputMap[RegisteredTSVFiles[j]] = append(outputMap[RegisteredTSVFiles[j]], ecsRecords[i])
+		for j := range RegisteredTSVFileTypes {
+			if RegisteredTSVFileTypes[j].HandlesECSRecord(ecsRecords[i]) {
+				outputMap[RegisteredTSVFileTypes[j]] = append(outputMap[RegisteredTSVFileTypes[j]], ecsRecords[i])
 			}
 		}
 	}
@@ -99,7 +99,7 @@ func MapECSRecordsToTSVFiles(ecsRecords []input.ECSRecord) map[ZeekTSVFile][]inp
 }
 
 //WriteTSVHeader writes out the header for a newly opened Zeek TSV file of the given type
-func WriteTSVHeader(fileType ZeekTSVFile, fileWriter io.Writer) error {
+func WriteTSVHeader(fileType TSVFileType, fileWriter io.Writer) error {
 	fileHeader := fileType.Header().WithOpenTime(time.Now()).String()
 	if _, err := fileWriter.Write([]byte(fileHeader)); err != nil {
 		return err
@@ -108,7 +108,7 @@ func WriteTSVHeader(fileType ZeekTSVFile, fileWriter io.Writer) error {
 }
 
 //WriteTSVLines writes out Elastic Common Schema records as lines of the given Zeek TSV file type to the given writer
-func WriteTSVLines(fileType ZeekTSVFile, outputData []input.ECSRecord, fileWriter io.Writer) error {
+func WriteTSVLines(fileType TSVFileType, outputData []input.ECSRecord, fileWriter io.Writer) error {
 	if len(outputData) == 0 {
 		return nil
 	}
@@ -126,10 +126,10 @@ func WriteTSVLines(fileType ZeekTSVFile, outputData []input.ECSRecord, fileWrite
 }
 
 //WriteTSVFooter writes out the footer for a Zeek TSV file of the given type
-func WriteTSVFooter(fileType ZeekTSVFile, closeTime time.Time, fileWriter io.Writer) error {
+func WriteTSVFooter(fileType TSVFileType, closeTime time.Time, fileWriter io.Writer) error {
 	header := fileType.Header()
 
-	fileClose := FormatZeekTSVClose(header, closeTime)
+	fileClose := FormatTSVClose(header, closeTime)
 	if _, err := fileWriter.Write([]byte(fileClose)); err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func WriteTSVFooter(fileType ZeekTSVFile, closeTime time.Time, fileWriter io.Wri
 //OpenTSVFile opens a Zeek TSV file at the given file path. If the file does not exist,
 //this function creates the file and writes out the appropriate Zeek TSV header as described
 //by the given Zeek file type.
-func OpenTSVFile(fileType ZeekTSVFile, filePath string) (file *os.File, err error) {
+func OpenTSVFile(fileType TSVFileType, filePath string) (file *os.File, err error) {
 	directory := path.Dir(filePath)
 	err = os.MkdirAll(directory, 0755)
 	if err != nil {

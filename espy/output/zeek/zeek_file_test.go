@@ -9,7 +9,7 @@ import (
 
 func TestZeekHeaderString(t *testing.T) {
 
-	header := ConnTSVFile{}.Header().WithOpenTime(time.Date(2021, 02, 14, 16, 17, 18, 0, time.UTC))
+	header := ConnTSV{}.Header().WithOpenTime(time.Date(2021, 02, 14, 16, 17, 18, 0, time.UTC))
 	testVal := header.String()
 	trueVal := "#separator \\x09\n#set_separator\t,\n#empty_field\t(empty)\n" +
 		"#unset_field\t-\n#path\tconn\n#open\t" + "2021-02-14-16-17-18" +

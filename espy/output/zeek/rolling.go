@@ -29,7 +29,7 @@ type RollingWriter struct {
 	archiveDir string
 	spoolDir   string
 
-	spoolFiles map[ZeekTSVFile]*os.File
+	spoolFiles map[TSVFileType]*os.File
 
 	scheduler   *cron.Cron
 	rotateMutex *sync.Mutex
@@ -42,13 +42,13 @@ func CreateRollingWritingSystem(tgtDir string, crashFunc func()) (output.ECSWrit
 	w.archiveDir = tgtDir
 	w.spoolDir = tgtDir + "/ecs-spool"
 
-	w.spoolFiles = make(map[ZeekTSVFile]*os.File, len(RegisteredTSVFiles))
-	for i := range RegisteredTSVFiles {
-		fileName := fmt.Sprintf("%s.log", RegisteredTSVFiles[i].Header().Path)
+	w.spoolFiles = make(map[TSVFileType]*os.File, len(RegisteredTSVFileTypes))
+	for i := range RegisteredTSVFileTypes {
+		fileName := fmt.Sprintf("%s.log", RegisteredTSVFileTypes[i].Header().Path)
 		filePath := path.Join(w.spoolDir, fileName)
 
 		var err error
-		w.spoolFiles[RegisteredTSVFiles[i]], err = OpenTSVFile(RegisteredTSVFiles[i], filePath)
+		w.spoolFiles[RegisteredTSVFileTypes[i]], err = OpenTSVFile(RegisteredTSVFileTypes[i], filePath)
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +195,7 @@ func (w *RollingWriter) rotateLogs(close bool) error {
 	return nil
 }
 
-func (w *RollingWriter) archivePathForFile(zeekFileType ZeekTSVFile, fileTime time.Time) string {
+func (w *RollingWriter) archivePathForFile(zeekFileType TSVFileType, fileTime time.Time) string {
 	path := zeekFileType.Header().Path
 	if rotateOnMinute {
 		startTime := fileTime.Add(-1 * time.Minute)
