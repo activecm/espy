@@ -1,25 +1,21 @@
 package zeek
 
 import (
-	"errors"
 	"fmt"
-	"io"
-	"os"
 	"time"
 
 	"github.com/activecm/espy/espy/input"
 )
 
-var ErrMalformedECSSession = errors.New("encountered malformed data in ECSSession")
+type ConnTSVFile struct{}
 
-func newConnHeader(headerTime time.Time) ZeekHeader {
+func (c ConnTSVFile) Header() ZeekHeader {
 	return ZeekHeader{
 		Separator:    "\\x09",
 		SetSeparator: ",",
 		EmptyField:   "(empty)",
 		UnsetField:   "-",
 		Path:         "conn",
-		OpenTime:     headerTime,
 		Fields: []string{
 			"ts", "uid", "id.orig_h", "id.orig_p", "id.resp_h", "id.resp_p",
 			"proto", "service", "duration", "orig_bytes", "resp_bytes", "conn_state",
@@ -35,28 +31,11 @@ func newConnHeader(headerTime time.Time) ZeekHeader {
 	}
 }
 
-func writeConnLines(outputData []*input.ECSRecord, fileWriter io.Writer) error {
-	if len(outputData) == 0 {
-		return nil
-	}
-
-	writeString, err := formatECSAsConnTSV(outputData)
-	if err != nil {
-		return err
-	}
-
-	if _, err := fileWriter.Write([]byte(writeString)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func formatECSAsConnTSV(outputData []*input.ECSRecord) (output string, err error) {
+func (c ConnTSVFile) FormatLines(outputData []*input.ECSRecord) (output string, err error) {
 	for _, data := range outputData {
 		goStartTime, err := time.Parse(time.RFC3339Nano, data.RFCTimestamp)
 		if err != nil {
-			return output, ErrMalformedECSSession
+			return output, input.ErrMalformedECSRecord
 		}
 
 		output += fmt.Sprintf("%.6f\t-\t%s\t%d\t%s\t%d\t%s\t-\t-\t-\t-\t-\tF\tF\t-\t-\t-\t-\t-\t-\t(empty)\t%s\t%s\n",
@@ -75,31 +54,4 @@ func formatECSAsConnTSV(outputData []*input.ECSRecord) (output string, err error
 		)
 	}
 	return output, err
-}
-
-// initConnSpoolFile will create and setup our spool directory
-// for buffering incoming connection logs
-func initConnSpoolFile(spoolFile, spoolDir string) (file *os.File, err error) {
-	err = os.MkdirAll(spoolDir, 0755)
-	if err != nil {
-		return nil, err
-	}
-
-	file, err = os.OpenFile(spoolFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
-
-	if err == nil {
-		fileHeader := newConnHeader(time.Now()).String()
-		if _, err = file.Write([]byte(fileHeader)); err != nil {
-			return nil, err
-		}
-	} else if os.IsExist(err) {
-		file, err = os.OpenFile(spoolFile, os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		return nil, err
-	}
-
-	return file, nil
 }

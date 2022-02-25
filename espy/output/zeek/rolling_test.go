@@ -25,7 +25,7 @@ func TestGetOutputFileName(t *testing.T) {
 	}
 
 	testWr.archiveDir = "/opt/zeek/logs"
-	testStr = testWr.getConnArchivePath(currTime)
+	testStr = testWr.getArchivePath(ConnTSVFile{}.Header().Path, currTime)
 
 	assert.Equal(t, timeStr, testStr, "The file paths should be equal")
 }

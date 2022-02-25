@@ -141,7 +141,7 @@ func main() {
 
 		err = zeekWriter.WriteECSRecords([]*input.ECSRecord{&ecsData})
 		if err != nil {
-			if err == zeek.ErrMalformedECSSession {
+			if err == input.ErrMalformedECSRecord {
 				log.WithError(err).WithField("input", netMessage[1]).Error("Could not read malformed ECS data")
 				continue
 			} else {

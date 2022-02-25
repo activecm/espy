@@ -34,7 +34,7 @@ func CreateStandardWritingSystem(tgtDir string) (output.ECSWriter, error) {
 	w.spoolDir = tgtDir + "/ecs-spool"
 	w.connArchivePath = w.archiveDir + "/conn.log.gz"
 	w.connSpoolPath = w.spoolDir + "/conn.log"
-	w.connSpoolFile, err = initConnSpoolFile(w.connSpoolPath, w.spoolDir)
+	w.connSpoolFile, err = OpenTSVFile(ConnTSVFile{}, w.connSpoolPath)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func CreateStandardWritingSystem(tgtDir string) (output.ECSWriter, error) {
 // WriteECSRecords adds more session data to current session
 func (w *StandardWriter) WriteECSRecords(outputData []*input.ECSRecord) error {
 	log.Debugf("Writing %d records", len(outputData))
-	return writeConnLines(outputData, w.connSpoolFile)
+	return WriteTSVLines(ConnTSVFile{}, outputData, w.connSpoolFile)
 }
 
 // Close will close all open sessions and rotate everything

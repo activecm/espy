@@ -1,7 +1,6 @@
 package output
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -54,7 +53,7 @@ func (e ElasticWriter) WriteECSRecords(outputData string) error {
 		if resp != nil {
 			httpCode = resp.StatusCode
 		}
-		err = errors.New(fmt.Sprintf("Elasticsearch HTTP Error: %d", httpCode))
+		err = fmt.Errorf("elasticsearch HTTP Error: %d", httpCode)
 	}
 	if err == nil {
 		log.Debugf("[%d] OK Data transferred to Elasticsearch: %s", resp.StatusCode, targetIndex)

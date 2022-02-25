@@ -1,5 +1,9 @@
 package input
 
+import "errors"
+
+var ErrMalformedECSRecord = errors.New("encountered malformed data in ECSRecord")
+
 //ECSRecord is the union of Elastic comma schema fields used by *beats software
 type ECSRecord struct {
 	RFCTimestamp string `json:"@timestamp"`
