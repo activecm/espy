@@ -78,6 +78,8 @@ type ZeekTSVFile interface {
 	Header() ZeekHeader
 	//FormatLines formats Elastic Common Schema records as lines of this Zeek TSV file type
 	FormatLines(outputData []input.ECSRecord) (output string, err error)
+	//HandlesECSRecord turns true if the data in the given ECS record can be formatted as a line of this Zeek TSV file type
+	HandlesECSRecord(data input.ECSRecord) bool
 }
 
 //WriteTSVHeader writes out the header for a newly opened Zeek TSV file of the given type

@@ -38,7 +38,7 @@ func (c ConnTSVFile) FormatLines(outputData []input.ECSRecord) (output string, e
 			return output, input.ErrMalformedECSRecord
 		}
 
-		output += fmt.Sprintf("%.6f\t-\t%s\t%d\t%s\t%d\t%s\t-\t-\t-\t-\t-\tF\tF\t-\t-\t-\t-\t-\t-\t(empty)\t%s\t%s\n",
+		output += fmt.Sprintf("%.6f\t-\t%s\t%d\t%s\t%d\t%s\t%s\t-\t-\t-\t-\tF\tF\t-\t-\t-\t-\t-\t-\t(empty)\t%s\t%s\n",
 			// from Sam: WARNING the way we handle data in RITA uses a floating time and splits
 			//  on the . in a time string. As such this needs to be a floating point
 			//  number. If we change the ingestion to handle floating timestamps this
@@ -49,6 +49,7 @@ func (c ConnTSVFile) FormatLines(outputData []input.ECSRecord) (output string, e
 			data.Destination.IP,
 			data.Destination.Port,
 			data.Network.Transport,
+			data.Network.Protocol,
 			data.Agent.ID,
 			data.Agent.Hostname,
 		)
