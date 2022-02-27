@@ -34,4 +34,12 @@ type ECSRecord struct {
 		Provider string
 		Code     string
 	}
+	DNS struct {
+		Answers []struct {
+			Data string
+		}
+		Question struct {
+			Name string
+		}
+	}
 }
