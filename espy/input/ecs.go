@@ -36,6 +36,7 @@ type ECSRecord struct {
 	}
 	DNS struct {
 		Answers []struct {
+			Type string
 			Data string
 		}
 		Question struct {
