@@ -2,6 +2,8 @@ package zeek
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/activecm/espy/espy/input"
@@ -32,33 +34,61 @@ func (c ConnTSV) Header() TSVHeader {
 }
 
 func (c ConnTSV) FormatLines(outputData []input.ECSRecord) (output string, err error) {
-	for _, data := range outputData {
-		goStartTime, err := time.Parse(time.RFC3339Nano, data.RFCTimestamp)
+	var outputBuilder strings.Builder
+	header := c.Header()
+	//escape \\x09 to tab
+	separator, _ := strconv.Unquote(fmt.Sprintf("\"%s\"", header.Separator))
+
+	for i := range outputData {
+		goStartTime, err := time.Parse(time.RFC3339Nano, outputData[i].RFCTimestamp)
 		if err != nil {
 			return output, input.ErrMalformedECSRecord
 		}
 
-		output += fmt.Sprintf("%.6f\t-\t%s\t%d\t%s\t%d\t%s\t%s\t-\t-\t-\t-\tF\tF\t-\t-\t-\t-\t-\t-\t(empty)\t%s\t%s\n",
-			// from Sam: WARNING the way we handle data in RITA uses a floating time and splits
-			//  on the . in a time string. As such this needs to be a floating point
-			//  number. If we change the ingestion to handle floating timestamps this
-			//  can be changed
-			float64(goStartTime.UnixNano())/1e9,
-			data.Source.IP,
-			data.Source.Port,
-			data.Destination.IP,
-			data.Destination.Port,
-			data.Network.Transport,
-			data.Network.Protocol,
-			data.Agent.ID,
-			data.Agent.Hostname,
-		)
+		// from Sam: WARNING the way we handle data in RITA uses a floating time and splits
+		//  on the . in a time string. As such this needs to be a floating point
+		//  number. If we change the ingestion to handle floating timestamps this
+		//  can be changed
+
+		values := []string{
+			fmt.Sprintf("%.6f", float64(goStartTime.UnixNano())/1e9), // "ts"
+			header.UnsetField,                            // "uid"
+			outputData[i].Source.IP,                      // "id.orig_h"
+			strconv.Itoa(outputData[i].Source.Port),      // "id.orig_p"
+			outputData[i].Destination.IP,                 // "id.resp_h"
+			strconv.Itoa(outputData[i].Destination.Port), // "id.resp_p",
+			outputData[i].Network.Transport,              // "proto"
+			outputData[i].Network.Protocol,               // "service"
+			header.UnsetField,                            // "duration"
+			header.UnsetField,                            // "orig_bytes"
+			header.UnsetField,                            // "resp_bytes"
+			header.UnsetField,                            // "conn_state",
+			"F",                                          // "local_orig"
+			"F",                                          // "local_resp"
+			header.UnsetField,                            // "missed_bytes"
+			header.UnsetField,                            // "history"
+			header.UnsetField,                            // "orig_pkts",
+			header.UnsetField,                            // "orig_ip_bytes"
+			header.UnsetField,                            // "resp_pkts"
+			header.UnsetField,                            // "resp_ip_bytes"
+			header.EmptyField,                            // "tunnel_parents",
+			outputData[i].Agent.ID,                       // "agent_uuid"
+			outputData[i].Agent.Hostname,                 // "agent_hostname",
+		}
+
+		lastIdx := len(values) - 1
+		for j := 0; j < lastIdx; j++ {
+			outputBuilder.WriteString(values[j])
+			outputBuilder.WriteString(separator)
+		}
+		outputBuilder.WriteString(values[lastIdx])
+		outputBuilder.WriteString("\n")
 	}
 	return output, err
 }
 
 func (c ConnTSV) HandlesECSRecord(data input.ECSRecord) bool {
-	return data.Event.Provider == "sysmon" && data.Event.Code == 3
+	return data.Event.Provider == "Microsoft-Windows-Sysmon" && data.Event.Code == 3
 }
 
 func init() {

@@ -2,6 +2,7 @@ package zeek
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -117,6 +118,11 @@ func (c DnsTSV) Header() TSVHeader {
 }
 
 func (c DnsTSV) FormatLines(outputData []input.ECSRecord) (output string, err error) {
+	var outputBuilder strings.Builder
+	header := c.Header()
+	//escape \\x09 to tab
+	separator, _ := strconv.Unquote(fmt.Sprintf("\"%s\"", header.Separator))
+
 	for i := range outputData {
 		goStartTime, err := time.Parse(time.RFC3339Nano, outputData[i].RFCTimestamp)
 		if err != nil {
@@ -124,12 +130,12 @@ func (c DnsTSV) FormatLines(outputData []input.ECSRecord) (output string, err er
 		}
 
 		answersSetBuilder := strings.Builder{}
-		answerType := c.Header().UnsetField
-		answerTypeName := c.Header().UnsetField
+		answerType := header.UnsetField
+		answerTypeName := header.UnsetField
 		if len(outputData[i].DNS.Answers) > 0 {
 			for j := 0; j < len(outputData[i].DNS.Answers)-1; j++ {
 				answersSetBuilder.WriteString(outputData[i].DNS.Answers[j].Data)
-				answersSetBuilder.WriteString(c.Header().SetSeparator)
+				answersSetBuilder.WriteString(header.SetSeparator)
 			}
 			answersSetBuilder.WriteString(outputData[i].DNS.Answers[len(outputData[i].DNS.Answers)-1].Data)
 			answerType = outputData[i].DNS.Answers[0].Type
@@ -139,31 +145,54 @@ func (c DnsTSV) FormatLines(outputData []input.ECSRecord) (output string, err er
 			} // swallow error otherwise and don't set the answer type name
 		}
 
-		output += fmt.Sprintf(
-			"%.6f\t-\t%s\t%d\t%s\t%d\t%s\t-\t-\t%s\t%s\t%s\t-\t-\t-\t-\t-\t-\t-\t-\t-\t%s\t(empty)\t-\t%s\t%s\n",
-			// from Sam: WARNING the way we handle data in RITA uses a floating time and splits
-			//  on the . in a time string. As such this needs to be a floating point
-			//  number. If we change the ingestion to handle floating timestamps this
-			//  can be changed
-			float64(goStartTime.UnixNano())/1e9,
-			outputData[i].Source.IP,
-			outputData[i].Source.Port,
-			outputData[i].Destination.IP,
-			outputData[i].Destination.Port,
-			outputData[i].Network.Transport,
-			outputData[i].DNS.Question.Name,
-			answerType,
-			answerTypeName,
-			answersSetBuilder.String(),
-			outputData[i].Agent.Hostname,
-			outputData[i].Agent.ID,
-		)
+		// from Sam: WARNING the way we handle data in RITA uses a floating time and splits
+		//  on the . in a time string. As such this needs to be a floating point
+		//  number. If we change the ingestion to handle floating timestamps this
+		//  can be changed
+
+		values := []string{
+			fmt.Sprintf("%.6f", float64(goStartTime.UnixNano())/1e9), // "ts"
+			header.UnsetField,                            // "uid"
+			outputData[i].Source.IP,                      // "id.orig_h"
+			strconv.Itoa(outputData[i].Source.Port),      // "id.orig_p"
+			outputData[i].Destination.IP,                 // "id.resp_h"
+			strconv.Itoa(outputData[i].Destination.Port), // "id.resp_p",
+			outputData[i].Network.Transport,              // "proto"
+			header.UnsetField,                            // "trans_id"
+			header.UnsetField,                            // "rtt"
+			outputData[i].DNS.Question.Name,              // "query"
+			header.UnsetField,                            // "qclass"
+			header.UnsetField,                            // "qclass_name",
+			answerType,                                   // "qtype"
+			answerTypeName,                               // "qtype_name"
+			header.UnsetField,                            // "rcode"
+			header.UnsetField,                            // "rcode_name"
+			header.UnsetField,                            // "AA"
+			header.UnsetField,                            // "TC"
+			header.UnsetField,                            // "RD"
+			header.UnsetField,                            // "RA"
+			header.UnsetField,                            // "Z",
+			answersSetBuilder.String(),                   // "answers"
+			header.UnsetField,                            // "TTLs"
+			header.UnsetField,                            // "rejected"
+			outputData[i].Agent.Hostname,                 // "agent_hostname"
+			outputData[i].Agent.ID,                       // "agent_uuid"
+		}
+
+		lastIdx := len(values) - 1
+		for j := 0; j < lastIdx; j++ {
+			outputBuilder.WriteString(values[j])
+			outputBuilder.WriteString(separator)
+		}
+		outputBuilder.WriteString(values[lastIdx])
+		outputBuilder.WriteString("\n")
 	}
+	output = outputBuilder.String()
 	return output, err
 }
 
 func (c DnsTSV) HandlesECSRecord(data input.ECSRecord) bool {
-	return data.Event.Provider == "sysmon" && data.Event.Code == 22
+	return data.Event.Provider == "Microsoft-Windows-Sysmon" && data.Event.Code == 22
 }
 
 func init() {
