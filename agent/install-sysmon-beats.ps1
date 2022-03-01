@@ -170,6 +170,9 @@ winlogbeat.event_logs:
           lang: javascript
           id: sysmon
           file: ${path.home}/module/sysmon/config/winlogbeat-sysmon.js
+      - add_host_metadata:
+          netinfo:
+            enabled: true
 
 output.redis:
   hosts:

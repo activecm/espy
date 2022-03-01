@@ -13,6 +13,9 @@ type ECSRecord struct {
 		Hostname string
 		ID       string
 	}
+	Host struct {
+		IP []string
+	}
 	Source struct {
 		IP   string
 		Port int

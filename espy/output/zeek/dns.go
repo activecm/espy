@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/activecm/espy/espy/input"
+	"github.com/activecm/espy/espy/util"
 )
 
 func dnsQueryTypeToID(qType string) (string, error) {
@@ -150,42 +151,44 @@ func (c DnsTSV) FormatLines(outputData []input.ECSRecord) (output string, err er
 		//  number. If we change the ingestion to handle floating timestamps this
 		//  can be changed
 
-		values := []string{
-			fmt.Sprintf("%.6f", float64(goStartTime.UnixNano())/1e9), // "ts"
-			header.UnsetField,                            // "uid"
-			outputData[i].Source.IP,                      // "id.orig_h"
-			strconv.Itoa(outputData[i].Source.Port),      // "id.orig_p"
-			outputData[i].Destination.IP,                 // "id.resp_h"
-			strconv.Itoa(outputData[i].Destination.Port), // "id.resp_p",
-			outputData[i].Network.Transport,              // "proto"
-			header.UnsetField,                            // "trans_id"
-			header.UnsetField,                            // "rtt"
-			outputData[i].DNS.Question.Name,              // "query"
-			header.UnsetField,                            // "qclass"
-			header.UnsetField,                            // "qclass_name",
-			answerType,                                   // "qtype"
-			answerTypeName,                               // "qtype_name"
-			header.UnsetField,                            // "rcode"
-			header.UnsetField,                            // "rcode_name"
-			header.UnsetField,                            // "AA"
-			header.UnsetField,                            // "TC"
-			header.UnsetField,                            // "RD"
-			header.UnsetField,                            // "RA"
-			header.UnsetField,                            // "Z",
-			answersSetBuilder.String(),                   // "answers"
-			header.UnsetField,                            // "TTLs"
-			header.UnsetField,                            // "rejected"
-			outputData[i].Agent.Hostname,                 // "agent_hostname"
-			outputData[i].Agent.ID,                       // "agent_uuid"
-		}
+		for _, sourceIP := range util.SelectPublicPrivateIPs(outputData[i].Host.IP) {
+			values := []string{
+				fmt.Sprintf("%.6f", float64(goStartTime.UnixNano())/1e9), // "ts"
+				header.UnsetField,               // "uid"
+				sourceIP,                        // "id.orig_h"
+				header.UnsetField,               // "id.orig_p"
+				header.UnsetField,               // "id.resp_h"
+				header.UnsetField,               // "id.resp_p",
+				header.UnsetField,               // "proto"
+				header.UnsetField,               // "trans_id"
+				header.UnsetField,               // "rtt"
+				outputData[i].DNS.Question.Name, // "query"
+				header.UnsetField,               // "qclass"
+				header.UnsetField,               // "qclass_name",
+				answerType,                      // "qtype"
+				answerTypeName,                  // "qtype_name"
+				header.UnsetField,               // "rcode"
+				header.UnsetField,               // "rcode_name"
+				header.UnsetField,               // "AA"
+				header.UnsetField,               // "TC"
+				header.UnsetField,               // "RD"
+				header.UnsetField,               // "RA"
+				header.UnsetField,               // "Z",
+				answersSetBuilder.String(),      // "answers"
+				header.UnsetField,               // "TTLs"
+				header.UnsetField,               // "rejected"
+				outputData[i].Agent.Hostname,    // "agent_hostname"
+				outputData[i].Agent.ID,          // "agent_uuid"
+			}
 
-		lastIdx := len(values) - 1
-		for j := 0; j < lastIdx; j++ {
-			outputBuilder.WriteString(values[j])
-			outputBuilder.WriteString(separator)
+			lastIdx := len(values) - 1
+			for j := 0; j < lastIdx; j++ {
+				outputBuilder.WriteString(values[j])
+				outputBuilder.WriteString(separator)
+			}
+			outputBuilder.WriteString(values[lastIdx])
+			outputBuilder.WriteString("\n")
 		}
-		outputBuilder.WriteString(values[lastIdx])
-		outputBuilder.WriteString("\n")
 	}
 	output = outputBuilder.String()
 	return output, err
