@@ -129,7 +129,7 @@ echo @"
             <!--SYSMON EVENT ID 19 & 20 & 21 : WMI EVENT MONITORING [WmiEvent]-->
         </WmiEvent>
 
-        <DnsQuery onmatch="include">
+        <DnsQuery onmatch="exclude">
             <!--SYSMON EVENT ID 22 : DNS QUERY MONITORING [DnsQuery]-->
         </DnsQuery>
 
