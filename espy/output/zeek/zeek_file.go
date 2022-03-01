@@ -84,6 +84,8 @@ type TSVFileType interface {
 	HandlesECSRecord(data input.ECSRecord) bool
 }
 
+//RegisteredTSVFileTypes is initialized with the supported Zeek file types when the zeek package is imported
+//See conn.go and dns.go.
 var RegisteredTSVFileTypes []TSVFileType
 
 //MapECSRecordsToTSVFiles maps the given Elastic Common Schema records to the Zeek files that

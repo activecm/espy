@@ -58,7 +58,7 @@ func (c ConnTSV) FormatLines(outputData []input.ECSRecord) (output string, err e
 }
 
 func (c ConnTSV) HandlesECSRecord(data input.ECSRecord) bool {
-	return data.Event.Provider == "sysmon" && data.Event.Code == "3"
+	return data.Event.Provider == "sysmon" && data.Event.Code == 3
 }
 
 func init() {
