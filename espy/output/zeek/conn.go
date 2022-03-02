@@ -84,6 +84,7 @@ func (c ConnTSV) FormatLines(outputData []input.ECSRecord) (output string, err e
 		outputBuilder.WriteString(values[lastIdx])
 		outputBuilder.WriteString("\n")
 	}
+	output = outputBuilder.String()
 	return output, err
 }
 
