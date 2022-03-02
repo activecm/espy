@@ -131,19 +131,37 @@ func (c DnsTSV) FormatLines(outputData []input.ECSRecord) (output string, err er
 		}
 
 		answersSetBuilder := strings.Builder{}
-		answerType := header.UnsetField
 		answerTypeName := header.UnsetField
+		answerTypeID := header.UnsetField
+
+		// Don't report CNAME responses since Zeek doesn't
+		// WEIRD: Windows issues A queries for IP addresses and gets back "-" in the answers
+		shouldHandleAnswer := func(dnsType, dnsData string) bool {
+			return dnsType != "CNAME" && dnsData != "-"
+		}
+
 		if len(outputData[i].DNS.Answers) > 0 {
+			// We have to split out the last iteration of this loop so we don't write out a trailing comma
 			for j := 0; j < len(outputData[i].DNS.Answers)-1; j++ {
-				answersSetBuilder.WriteString(outputData[i].DNS.Answers[j].Data)
-				answersSetBuilder.WriteString(header.SetSeparator)
+				if shouldHandleAnswer(outputData[i].DNS.Answers[j].Type, outputData[i].DNS.Answers[j].Data) {
+					answersSetBuilder.WriteString(outputData[i].DNS.Answers[j].Data)
+					answersSetBuilder.WriteString(header.SetSeparator)
+					answerTypeName = outputData[i].DNS.Answers[j].Type
+				}
 			}
-			answersSetBuilder.WriteString(outputData[i].DNS.Answers[len(outputData[i].DNS.Answers)-1].Data)
-			answerType = outputData[i].DNS.Answers[0].Type
-			tmpAnswerTypeName, err := dnsQueryTypeToID(answerType)
+			lastIdx := len(outputData[i].DNS.Answers) - 1
+			if shouldHandleAnswer(outputData[i].DNS.Answers[lastIdx].Type, outputData[i].DNS.Answers[lastIdx].Data) {
+				answersSetBuilder.WriteString(outputData[i].DNS.Answers[lastIdx].Data)
+				answerTypeName = outputData[i].DNS.Answers[lastIdx].Type
+			}
+
+			tmpAnswerTypeID, err := dnsQueryTypeToID(answerTypeName)
 			if err == nil {
-				answerTypeName = tmpAnswerTypeName
-			} // swallow error otherwise and don't set the answer type name
+				answerTypeID = tmpAnswerTypeID
+			} // swallow error otherwise and don't set the answer type ID
+		}
+		if answersSetBuilder.Len() == 0 {
+			answersSetBuilder.WriteString(header.EmptyField)
 		}
 
 		// from Sam: WARNING the way we handle data in RITA uses a floating time and splits
@@ -165,7 +183,7 @@ func (c DnsTSV) FormatLines(outputData []input.ECSRecord) (output string, err er
 				outputData[i].DNS.Question.Name, // "query"
 				header.UnsetField,               // "qclass"
 				header.UnsetField,               // "qclass_name",
-				answerType,                      // "qtype"
+				answerTypeID,                    // "qtype"
 				answerTypeName,                  // "qtype_name"
 				header.UnsetField,               // "rcode"
 				header.UnsetField,               // "rcode_name"
