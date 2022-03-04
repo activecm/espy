@@ -84,7 +84,14 @@ if ($SysmonConfig -eq "" -and (Test-Path "$Env:windir\Sysmon64.exe" -PathType Le
 }
 
 if ($SysmonConfig -ne "" -and (Test-Path "$SysmonConfig" -PathType Leaf)) {
-    [xml]$sysmonXML = Get-Content "$SysmonConfig"
+    [xml]$sysmonXML = $null
+
+    $configPathAsURI =$sysmonConfig -as [System.URI]
+    if ($null -ne $configPathAsURI.AbsoluteURI -and $configPathAsURI.Scheme -match '[http|https]') {
+        [xml]$sysmonXML = (Invoke-WebRequest -Uri "$SysmonConfig").Content
+    } else {
+        [xml]$sysmonXML = Get-Content "$SysmonConfig"
+    } 
 
     $schemaVersionString = $sysmonXML.Sysmon.schemaversion
 
