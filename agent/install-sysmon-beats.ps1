@@ -266,13 +266,13 @@ if (Test-Path -PathType Leaf .\winlogbeat.yml) {
 
 $winlogbeatSysmonCfg = @"
 winlogbeat.event_logs:
-    - name: Microsoft-Windows-Sysmon/Operational
+  - name: Microsoft-Windows-Sysmon/Operational
     event_id: 3
     processors:
-        - script:
-            lang: javascript
-            id: sysmon
-            file: ${path.home}/module/sysmon/config/winlogbeat-sysmon.js
+      - script:
+          lang: javascript
+          id: sysmon
+          file: ${path.home}/module/sysmon/config/winlogbeat-sysmon.js
 "@
 
 # Add the windows event logs config to winlogbeat if it doesn't exist.
@@ -291,9 +291,9 @@ if ((Test-Path -PathType Leaf .\winlogbeat.yml) -and
 
 $winlogbeatRedisCfg = @"
 output.redis:
-    hosts:
+  hosts:
     - ${RedisHost}:${RedisPort}
-    ssl:
+  ssl:
     enabled: true
     verification_mode: none
     key: "net-data:sysmon"
