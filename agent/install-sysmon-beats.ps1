@@ -296,8 +296,8 @@ output.redis:
   ssl:
     enabled: true
     verification_mode: none
-    key: "net-data:sysmon"
-    password: `"`${REDIS_PASSWORD}`"
+  key: "net-data:sysmon"
+  password: `"`${REDIS_PASSWORD}`"
 "@
 
 if ((Test-Path -PathType Leaf .\winlogbeat.yml) -and 
