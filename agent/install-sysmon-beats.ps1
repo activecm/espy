@@ -74,8 +74,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 # Set SysmonConfig by querying Sysmon if it has already been installed
 if ($SysmonConfig -eq "" -and (Test-Path "$Env:windir\Sysmon64.exe" -PathType Leaf)) {
     $oldConfigPathLine = (& "$Env:windir\Sysmon64.exe" "-c" | Select-String " - Config file:").Line
-    $oldConfigPathLineValueStart = $oldConfigPathLine.LastIndexOf(" ") + 1
-    $oldConfigPath = $oldConfigPathLine.Substring($oldConfigPathLineValueStart)
+    $oldConfigPath = [RegEx]::Matches($oldConfigPathLine, "^ - Config file:\s*(\S.*)$").Groups[1].Value  # Returns "" if no match
     if (Test-Path "$oldConfigPath" -PathType Leaf) {
         $SysmonConfig = (Resolve-Path "$oldConfigPath").Path
     } else {
@@ -224,13 +223,14 @@ if (-not (Test-Path "$Env:programfiles\Sysmon" -PathType Container)) {
     mv .\Sysmon\ "$Env:programfiles"
 }
 
+# Load the new sysmon configuration and install the service if needed
 if (Test-Path "$Env:windir\Sysmon64.exe" -PathType Leaf) {
     & "$Env:programfiles\Sysmon\Sysmon64.exe" -c "$Env:programfiles\Sysmon\sysmon-espy.xml"
 } else {
     & "$Env:programfiles\Sysmon\Sysmon64.exe" -accepteula -i "$Env:programfiles\Sysmon\sysmon-espy.xml"
 }
 
-
+# Download winlogbeat if it doesn't exist
 if (-not (Test-Path "$Env:programfiles\winlogbeat*" -PathType Container)) {
   Invoke-WebRequest -OutFile WinLogBeat.zip https://artifacts.elastic.co/downloads/beats/winlogbeat/winlogbeat-7.5.2-windows-x86_64.zip
   Expand-Archive .\WinLogBeat.zip
@@ -238,37 +238,80 @@ if (-not (Test-Path "$Env:programfiles\winlogbeat*" -PathType Container)) {
   mv .\WinLogBeat\winlogbeat* "$Env:programfiles"
 }
 
+# Begin winlogbeat configuration
 Set-Location "$Env:programfiles\winlogbeat*\"
-.\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore create
-if($RedisPassword) {
-  Write-Output "$RedisPassword" | .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore add REDIS_PASSWORD --stdin
-} else {
-  .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore add REDIS_PASSWORD
+
+# Create the keystore if it doesn't exist
+if (-not (Test-Path -PathType Leaf "C:\ProgramData\winlogbeat\winlogbeat.keystore")) {
+    .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore create
+}
+
+# Set the Redis password if it doesn't exist
+if ((.\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore list | Select-String REDIS_PASSWORD).Matches.Length -eq 0) {
+    if($RedisPassword) {
+        Write-Output "$RedisPassword" | .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore add REDIS_PASSWORD --stdin
+    } else {
+        .\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore add REDIS_PASSWORD
+    }
 }
 
 # Set ACL's of the $Env:ProgramData\winlogbeat folder to be the same as $Env:ProgramFiles\winlogbeat* (the main install path)
 # This helps ensure that "normal" users aren't able to access the $Env:ProgramData\winlogbeat folder
 Get-ACL -Path "$Env:ProgramFiles\winlogbeat*" | Set-ACL -Path "$Env:ProgramData\winlogbeat"
+ 
+# Backup winlogbeat config if it exists
+if (Test-Path -PathType Leaf .\winlogbeat.yml) {
+    Copy-Item .\winlogbeat.yml .\winlogbeat.yml.bak
+}
 
-rm .\winlogbeat.yml
-Write-Output @"
+$winlogbeatSysmonCfg = @"
 winlogbeat.event_logs:
-  - name: Microsoft-Windows-Sysmon/Operational
+    - name: Microsoft-Windows-Sysmon/Operational
     event_id: 3
     processors:
-      - script:
-          lang: javascript
-          id: sysmon
-          file: ${path.home}/module/sysmon/config/winlogbeat-sysmon.js
+        - script:
+            lang: javascript
+            id: sysmon
+            file: ${path.home}/module/sysmon/config/winlogbeat-sysmon.js
+"@
 
+# Add the windows event logs config to winlogbeat if it doesn't exist.
+if ((Test-Path -PathType Leaf .\winlogbeat.yml) -and 
+    ((Get-Content -Raw .\winlogbeat.yml | Select-String "winlogbeat\.event_logs:").Matches.Length -gt 0)) {
+    Write-Output "Found Event Logs stanza in the existing winlogbeat configuration"
+    Write-Output "Refusing to update winlogbeat Event Logs configuration"
+    Write-Output "Please ensure the following configuration is present in`n`t$( (Resolve-Path .).Path )\winlogbeat.yml:"
+    Write-Output ""
+    Write-Output "$winlogbeatSysmonCfg"
+    Write-Output ""
+} else {
+    Write-Output "" >> .\winlogbeat.yml
+    Write-Output "$winlogbeatSysmonCfg" >> .\winlogbeat.yml
+}
+
+$winlogbeatRedisCfg = @"
 output.redis:
-  hosts:
+    hosts:
     - ${RedisHost}:${RedisPort}
-  ssl:
+    ssl:
     enabled: true
     verification_mode: none
-  key: "net-data:sysmon"
-  password: `"`${REDIS_PASSWORD}`"
-"@ > winlogbeat.yml
+    key: "net-data:sysmon"
+    password: `"`${REDIS_PASSWORD}`"
+"@
+
+if ((Test-Path -PathType Leaf .\winlogbeat.yml) -and 
+    ((Get-Content -Raw .\winlogbeat.yml | Select-String "output\.redis:").Matches.Length -gt 0)) {
+    Write-Output "Found Redis stanza in the existing winlogbeat configuration"
+    Write-Output "Refusing to update winlogbeat Redis configuration"
+    Write-Output "Please ensure the following configuration is present in`n`t$( (Resolve-Path .).Path )\winlogbeat.yml:"
+    Write-Output ""
+    Write-Output "$winlogbeatRedisCfg"
+    Write-Output ""
+} else {
+    Write-Output "" >> .\winlogbeat.yml
+    Write-Output "$winlogbeatRedisCfg" >> .\winlogbeat.yml
+}
+
 PowerShell.exe -ExecutionPolicy UnRestricted -File .\install-service-winlogbeat.ps1
 Start-Service winlogbeat
