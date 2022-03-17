@@ -8,8 +8,10 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/go-redis/redis/v8"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 
 	"github.com/activecm/espy/espy/config"
 	"github.com/activecm/espy/espy/input"
@@ -98,10 +100,12 @@ func main() {
 	var zeekWriter output.ECSWriter
 	if conf.S.Zeek.RotateLogs {
 		zeekWriter, err = zeek.CreateRollingWritingSystem(
-			conf.S.Zeek.OutputPath, ctxCancelFunc,
+			afero.NewOsFs(), clock.New(), conf.S.Zeek.OutputPath, ctxCancelFunc,
 		)
 	} else {
-		zeekWriter, err = zeek.CreateStandardWritingSystem(conf.S.Zeek.OutputPath)
+		zeekWriter, err = zeek.CreateStandardWritingSystem(
+			afero.NewOsFs(), clock.New(), conf.S.Zeek.OutputPath,
+		)
 	}
 
 	if err != nil {
@@ -125,23 +129,23 @@ func main() {
 
 		//send message to elasticsearch
 		if esWriter != nil {
-			err = esWriter.AddSessionToWriter(netMessage[1])
+			err = esWriter.WriteECSRecords([]string{netMessage[1]})
 			if err != nil {
 				log.WithError(err).WithField("input", netMessage[1]).Error("Could not connect to Elasticsearch.")
 			}
 		}
 
 		//parse data and send it to zeek writer
-		ecsData := input.ECSSession{}
+		ecsData := input.ECSRecord{}
 		err = json.Unmarshal([]byte(netMessage[1]), &ecsData)
 		if err != nil {
 			log.WithError(err).WithField("input", netMessage[1]).Error("Could not parse JSON data.")
 			continue
 		}
 
-		err = zeekWriter.AddSessionToWriter([]*input.ECSSession{&ecsData})
+		err = zeekWriter.WriteECSRecords([]input.ECSRecord{ecsData})
 		if err != nil {
-			if err == zeek.ErrMalformedECSSession {
+			if err == input.ErrMalformedECSRecord {
 				log.WithError(err).WithField("input", netMessage[1]).Error("Could not read malformed ECS data")
 				continue
 			} else {

@@ -1,13 +1,13 @@
 package output
 
 import (
-	"errors"
 	"fmt"
-	"github.com/activecm/espy/espy/config"
-	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/activecm/espy/espy/config"
+	log "github.com/sirupsen/logrus"
 )
 
 type ElasticWriter struct {
@@ -36,30 +36,33 @@ func (e ElasticWriter) targetIndex() string {
 	return fmt.Sprintf("sysmon-%s", today.Format("2006-01-02"))
 }
 
-//AddSessionToWriter sends the outputData to Elasticsearch
-func (e ElasticWriter) AddSessionToWriter(outputData string) error {
+//WriteECSRecords sends the outputData to Elasticsearch
+func (e ElasticWriter) WriteECSRecords(outputData []string) error {
 	targetIndex := e.targetIndex()
 	esHostURL := fmt.Sprintf("https://%s/%s/_doc", e.Host, e.targetIndex())
-	reader := strings.NewReader(outputData)
-	request, err := http.NewRequest("POST", esHostURL, reader)
-	if err != nil {
-		log.WithError(err).WithField("input", outputData).Error("Could not create HTTP request to handoff data to Elasticsearch.")
-	}
-	request.SetBasicAuth(e.User, e.Password)
-	request.Header.Set("Content-Type", "application/json")
-	resp, err := e.httpClient.Do(request)
-	if err == nil && (resp == nil || resp.StatusCode < 200 || resp.StatusCode > 299) {
-		httpCode := -1
-		if resp != nil {
-			httpCode = resp.StatusCode
+	for i := range outputData {
+		reader := strings.NewReader(outputData[i])
+		request, err := http.NewRequest("POST", esHostURL, reader)
+		if err != nil {
+			log.WithError(err).WithField("input", outputData[i]).Error("Could not create HTTP request to handoff data to Elasticsearch.")
 		}
-		err = errors.New(fmt.Sprintf("Elasticsearch HTTP Error: %d", httpCode))
-	}
-	if err == nil {
+		request.SetBasicAuth(e.User, e.Password)
+		request.Header.Set("Content-Type", "application/json")
+		resp, err := e.httpClient.Do(request)
+		if err == nil && (resp == nil || resp.StatusCode < 200 || resp.StatusCode > 299) {
+			httpCode := -1
+			if resp != nil {
+				httpCode = resp.StatusCode
+			}
+			err = fmt.Errorf("elasticsearch HTTP Error: %d", httpCode)
+		}
+		if err != nil {
+			return err
+		}
 		log.Debugf("[%d] OK Data transferred to Elasticsearch: %s", resp.StatusCode, targetIndex)
 		resp.Body.Close()
 	}
-	return err
+	return nil
 }
 
 //Close does nothing for the ElasticWriter since each document is written
