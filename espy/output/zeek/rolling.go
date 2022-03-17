@@ -2,12 +2,15 @@ package zeek
 
 import (
 	"compress/gzip"
+	"fmt"
 	"io"
-	"os"
+	"path"
 	"sync"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 
 	"github.com/activecm/espy/espy/input"
 	"github.com/activecm/espy/espy/output"
@@ -24,28 +27,42 @@ const rotateOnMinute = false
 // packet sessions in and will print to a spool file
 // until the end of the hour and will rotate them
 type RollingWriter struct {
-	zeekDir     string
-	spoolDir    string
-	spoolFile   string
+	archiveDir string
+	spoolDir   string
+
+	fs         afero.Fs
+	clock      clock.Clock
+	spoolFiles map[TSVFileType]afero.File
+
 	scheduler   *cron.Cron
-	file        *os.File
 	rotateMutex *sync.Mutex
 	crashFunc   func()
 }
 
 // CreateRollingWritingSystem constructs new rolling writer system
-func CreateRollingWritingSystem(tgtDir string, crashFunc func()) (output.ECSWriter, error) {
-	w := &RollingWriter{}
-	w.zeekDir = tgtDir
-	w.spoolDir = tgtDir + "/ecs-spool"
-	w.spoolFile = w.spoolDir + "/conn.log"
+func CreateRollingWritingSystem(fs afero.Fs, clock clock.Clock, tgtDir string, crashFunc func()) (output.ECSWriter, error) {
+	w := &RollingWriter{
+		fs:         fs,
+		clock:      clock,
+		archiveDir: tgtDir,
+		spoolDir:   path.Join(tgtDir, "ecs-spool"),
+		spoolFiles: make(map[TSVFileType]afero.File, len(RegisteredTSVFileTypes)),
+	}
+
+	for i := range RegisteredTSVFileTypes {
+		fileName := fmt.Sprintf("%s.log", RegisteredTSVFileTypes[i].Header().Path)
+		filePath := path.Join(w.spoolDir, fileName)
+
+		var err error
+		w.spoolFiles[RegisteredTSVFileTypes[i]], err = OpenTSVFile(fs, clock, RegisteredTSVFileTypes[i], filePath)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	w.rotateMutex = new(sync.Mutex)
 	w.crashFunc = crashFunc
 	err := w.initWriterSchedule()
-	if err != nil {
-		return nil, err
-	}
-	w.file, err = initSpoolFile(w.spoolFile, w.spoolDir)
 	if err != nil {
 		return nil, err
 	}
@@ -73,12 +90,20 @@ func (w *RollingWriter) initWriterSchedule() (err error) {
 	return nil
 }
 
-// AddSessionToWriter adds additional sessions to our writer
-func (w *RollingWriter) AddSessionToWriter(outputdata []*input.ECSSession) error {
+// WriteECSRecords writes Elastic Common Schema records out to Zeek files
+func (w *RollingWriter) WriteECSRecords(outputData []input.ECSRecord) error {
 	w.rotateMutex.Lock()
 	defer w.rotateMutex.Unlock()
-	log.Debugf("Writing %d records", len(outputdata))
-	return writeLine(outputdata, w.file)
+	log.Debugf("Writing %d records", len(outputData))
+
+	for zeekFileType, groupedData := range MapECSRecordsToTSVFiles(outputData) {
+		err := WriteTSVLines(zeekFileType, groupedData, w.spoolFiles[zeekFileType])
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Close will close out the file progress and save everything
@@ -104,86 +129,88 @@ func (w *RollingWriter) rotateLogs(close bool) error {
 	w.rotateMutex.Lock()
 	defer w.rotateMutex.Unlock()
 
-	outName := w.getOutputFilename(time.Now())
 	if !close {
 		log.Debug("About to rotate logs")
 	} else {
 		log.Debug("Closing files")
 	}
 
-	currTime := time.Now()
-	closeStr := currTime.Format("#close	2006-01-02-15-04-05\n")
-	dirdate := currTime.Format("/2006-01-02")
+	for zeekFileType, spoolFile := range w.spoolFiles {
+		currTime := w.clock.Now()
 
-	if err := os.MkdirAll(w.zeekDir+dirdate, 0755); err != nil {
-		return err
-	}
-
-	// Write closing string to our spool file
-	if _, err := w.file.Write([]byte(closeStr)); err != nil {
-		return err
-	}
-
-	// close the file out, prepare for reading
-	if err := w.file.Close(); err != nil {
-		return err
-	}
-
-	srcFile, err := os.Open(w.spoolFile)
-	if err != nil {
-		return err
-	}
-
-	// Open the gzip file
-	// make sure it doesn't exist
-	gzfile, err := os.Create(outName)
-	if err != nil {
-		return err
-	}
-	gzout := gzip.NewWriter(gzfile)
-
-	// copy contents from source file to gzip file
-	size, err := io.Copy(gzout, srcFile)
-
-	log.Debugf("Copied %s to %s", srcFile.Name(), gzfile.Name())
-
-	srcFile.Close()
-	gzout.Close()
-	gzfile.Close()
-
-	if err != nil {
-		return err
-	}
-
-	if err = os.Remove(srcFile.Name()); err != nil {
-		return err
-	}
-
-	log.Infof("Log written: %s    size: %d", outName, size)
-
-	// Spool gets deleted, we must remake it if we're not closing
-
-	if !close {
-		log.Debug("About to re-create spool file")
-		w.file, err = initSpoolFile(w.spoolFile, w.spoolDir)
+		// Write the closing footer to our spool file
+		err := WriteTSVFooter(zeekFileType, currTime, spoolFile)
 		if err != nil {
 			return err
 		}
 
-		log.Debugf("Rolled over logs, created new spool directory in %s", w.spoolDir)
+		// close the file out, prepare for reading
+		if err := spoolFile.Close(); err != nil {
+			return err
+		}
+
+		// archive the spool file we just closed out
+		srcFile, err := w.fs.Open(spoolFile.Name())
+		if err != nil {
+			return err
+		}
+
+		dirDate := currTime.Format("2006-01-02")
+		datedArchiveDir := path.Join(w.archiveDir, dirDate)
+		if err := w.fs.MkdirAll(datedArchiveDir, 0755); err != nil {
+			return err
+		}
+
+		archivePath := w.archivePathForFile(zeekFileType, currTime)
+
+		// Open the gzip file and make sure it doesn't exist
+		gzfile, err := w.fs.Create(archivePath)
+		if err != nil {
+			return err
+		}
+		gzout := gzip.NewWriter(gzfile)
+
+		// copy contents from source file to gzip file
+		size, err := io.Copy(gzout, srcFile)
+
+		srcFile.Close()
+		gzout.Close()
+		gzfile.Close()
+
+		if err != nil {
+			return err
+		}
+
+		if err = w.fs.Remove(srcFile.Name()); err != nil {
+			return err
+		}
+
+		log.Infof("Log written: %s    size: %d", archivePath, size)
+
+		// Spool gets deleted, we must remake it if we're not closing
+		if !close {
+			log.Debug("About to re-create spool file")
+			w.spoolFiles[zeekFileType], err = OpenTSVFile(w.fs, w.clock, zeekFileType, spoolFile.Name())
+			if err != nil {
+				return err
+			}
+
+			log.Debugf("Rolled over logs, created new spool directory in %s", w.spoolDir)
+		}
 	}
 	return nil
 }
 
-func (w *RollingWriter) getOutputFilename(fileTime time.Time) string {
+func (w *RollingWriter) archivePathForFile(zeekFileType TSVFileType, fileTime time.Time) string {
+	path := zeekFileType.Header().Path
 	if rotateOnMinute {
 		startTime := fileTime.Add(-1 * time.Minute)
-		return w.zeekDir + startTime.Format("/2006-01-02") + "/" +
-			"conn." + startTime.Format("15:04:00") + "-" +
+		return w.archiveDir + startTime.Format("/2006-01-02") + "/" +
+			path + "." + startTime.Format("15:04:00") + "-" +
 			fileTime.Format("15:04:05") + ".log.gz"
 	} // else rotate on the hour
 	startTime := fileTime.Add(-1 * time.Hour)
-	return w.zeekDir + startTime.Format("/2006-01-02") + "/" +
-		"conn." + startTime.Format("15:00:00") + "-" +
+	return w.archiveDir + startTime.Format("/2006-01-02") + "/" +
+		path + "." + startTime.Format("15:00:00") + "-" +
 		fileTime.Format("15:00:00") + ".log.gz"
 }

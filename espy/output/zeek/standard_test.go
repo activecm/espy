@@ -1,38 +1,40 @@
 package zeek
 
 import (
+	"path"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/benbjohnson/clock"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/require"
 )
 
-func TestConstructor(t *testing.T) {
-	w, err := CreateStandardWritingSystem("/opt/zeek/logs")
-	if err != nil {
-		t.Error(err)
+func TestOpenStandardFiles(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	clock := clock.NewMock()
+	_, err := CreateStandardWritingSystem(fs, clock, "/opt/zeek/logs")
+	require.Nil(t, err, "Should be able to open spool files")
+	for _, zeekFileType := range RegisteredTSVFileTypes {
+		zeekPath := zeekFileType.Header().Path
+		spoolPath := path.Join("/opt/zeek/logs", "ecs-spool", zeekPath+".log")
+		testVal, testErr := afero.Exists(fs, spoolPath)
+		require.Nil(t, testErr, "Spool file for "+zeekPath+" log should exist")
+		require.True(t, testVal, "Spool file for "+zeekPath+" log should exist")
 	}
-
-	tstWr, ok := w.(*StandardWriter)
-	if !ok {
-		t.Error("System failed to cast to Standard Writer")
-	}
-
-	assert.Equal(t, tstWr.spoolFile, "/opt/zeek/logs/flow-spool/conn.log", "The strings should be equal")
-	assert.Equal(t, tstWr.outFileName, "/opt/zeek/logs/conn.log.gz", "The strings should be equal")
 }
 
-func TestClosing(t *testing.T) {
-	w, err := CreateStandardWritingSystem("/opt/zeek/logs")
-	if err != nil {
-		t.Error(err)
+func TestCloseStandardFiles(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	clock := clock.NewMock()
+	w, err := CreateStandardWritingSystem(fs, clock, "/opt/zeek/logs")
+	require.Nil(t, err, "Should be able to open spool files")
+	w.Close()
+	require.Nil(t, err, "Should be able to close spool files and open archive files")
+	for _, zeekFileType := range RegisteredTSVFileTypes {
+		zeekPath := zeekFileType.Header().Path
+		archivePath := path.Join("/opt/zeek/logs", zeekPath+".log.gz")
+		testVal, testErr := afero.Exists(fs, archivePath)
+		require.Nil(t, testErr, "Archive file for "+zeekPath+" log should exist")
+		require.True(t, testVal, "Archive file for "+zeekPath+" log should exist")
 	}
-
-	tstWr, ok := w.(*StandardWriter)
-	if !ok {
-		t.Error("System failed to cast to Standard Writer")
-	}
-
-	err = tstWr.Close()
-
-	assert.Equal(t, err, nil, "Closing should return no errors")
 }

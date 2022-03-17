@@ -1,5 +1,5 @@
 # Build container
-FROM golang:1.14-alpine as espy-build
+FROM golang:1.17-alpine as espy-build
 
 RUN apk add --no-cache git make ca-certificates wget build-base
 

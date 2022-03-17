@@ -129,8 +129,8 @@ echo @"
             <!--SYSMON EVENT ID 19 & 20 & 21 : WMI EVENT MONITORING [WmiEvent]-->
         </WmiEvent>
 
-        <DnsQuery onmatch="include">
-            <!--SYSMON EVENT ID 19 & 20 & 21 : WMI EVENT MONITORING [WmiEvent]-->
+        <DnsQuery onmatch="exclude">
+            <!--SYSMON EVENT ID 22 : DNS QUERY MONITORING [DnsQuery]-->
         </DnsQuery>
 
         <!--SYSMON EVENT ID 255 : ERROR-->
@@ -164,12 +164,15 @@ rm .\winlogbeat.yml
 echo @"
 winlogbeat.event_logs:
   - name: Microsoft-Windows-Sysmon/Operational
-    event_id: 3
+    event_id: 3, 22
     processors:
       - script:
           lang: javascript
           id: sysmon
           file: ${path.home}/module/sysmon/config/winlogbeat-sysmon.js
+      - add_host_metadata:
+          netinfo:
+            enabled: true
 
 output.redis:
   hosts:
