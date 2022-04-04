@@ -242,24 +242,6 @@ if (-not (Test-Path "$Env:programfiles\winlogbeat*" -PathType Container)) {
 # Begin winlogbeat configuration
 Set-Location "$Env:programfiles\winlogbeat*\"
 
-# Create the keystore if it doesn't exist
-if (-not (Test-Path -PathType Leaf "$Env:ProgramData\winlogbeat\winlogbeat.keystore")) {
-    .\winlogbeat.exe --path.data "$Env:ProgramData\winlogbeat" keystore create
-}
-
-# Set the Redis password if it doesn't exist
-if ((.\winlogbeat.exe --path.data "$Env:ProgramData\winlogbeat" keystore list | Select-String REDIS_PASSWORD).Matches.Length -eq 0) {
-    if($RedisPassword) {
-        Write-Output "$RedisPassword" | .\winlogbeat.exe --path.data "$Env:ProgramData\winlogbeat" keystore add REDIS_PASSWORD --stdin
-    } else {
-        .\winlogbeat.exe --path.data "$Env:ProgramData\winlogbeat" keystore add REDIS_PASSWORD
-    }
-}
-
-# Set ACL's of the $Env:ProgramData\winlogbeat folder to be the same as $Env:ProgramFiles\winlogbeat* (the main install path)
-# This helps ensure that "normal" users aren't able to access the $Env:ProgramData\winlogbeat folder
-Get-ACL -Path "$Env:ProgramFiles\winlogbeat*" | Set-ACL -Path "$Env:ProgramData\winlogbeat"
- 
 # Backup winlogbeat config if it exists
 if (Test-Path -PathType Leaf .\winlogbeat.yml) {
     Copy-Item .\winlogbeat.yml .\winlogbeat.yml.bak
@@ -315,6 +297,23 @@ if ((Test-Path -PathType Leaf .\winlogbeat.yml) -and
 } else {
     Write-Output "" >> .\winlogbeat.yml
     Write-Output "$winlogbeatRedisCfg" >> .\winlogbeat.yml
+}
+
+# Create the keystore if it doesn't exist
+if (-not (Test-Path -PathType Leaf "$Env:ProgramData\winlogbeat\winlogbeat.keystore")) {
+    .\winlogbeat.exe --path.data "$Env:ProgramData\winlogbeat" keystore create
+    # Set ACL's of the $Env:ProgramData\winlogbeat folder to be the same as $Env:ProgramFiles\winlogbeat* (the main install path)
+    # This helps ensure that "normal" users aren't able to access the $Env:ProgramData\winlogbeat folder
+    Get-ACL -Path "$Env:ProgramFiles\winlogbeat*" | Set-ACL -Path "$Env:ProgramData\winlogbeat"
+}
+
+# Set the Redis password if it doesn't exist
+if ((.\winlogbeat.exe --path.data "$Env:ProgramData\winlogbeat" keystore list | Select-String REDIS_PASSWORD).Matches.Length -eq 0) {
+    if($RedisPassword) {
+        Write-Output "$RedisPassword" | .\winlogbeat.exe --path.data "$Env:ProgramData\winlogbeat" keystore add REDIS_PASSWORD --stdin
+    } else {
+        .\winlogbeat.exe --path.data "$Env:ProgramData\winlogbeat" keystore add REDIS_PASSWORD
+    }
 }
 
 PowerShell.exe -ExecutionPolicy UnRestricted -File .\install-service-winlogbeat.ps1
