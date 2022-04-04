@@ -71,6 +71,14 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     Break
 }
 
+# Copy Sysmon into Program Files if it doesn't already exist
+if (-not (Test-Path "$Env:programfiles\Sysmon" -PathType Container)) {
+    Invoke-WebRequest -OutFile Sysmon.zip https://download.sysinternals.com/files/Sysmon.zip
+    Expand-Archive .\Sysmon.zip
+    rm .\Sysmon.zip
+    mv .\Sysmon\ "$Env:programfiles"
+}
+
 # Set SysmonConfig by querying Sysmon if it has already been installed
 if ($SysmonConfig -eq "" -and (Test-Path "$Env:windir\Sysmon64.exe" -PathType Leaf)) {
     $oldConfigPathLine = (& "$Env:windir\Sysmon64.exe" "-c" | Select-String " - Config file:").Line
@@ -213,14 +221,6 @@ if ($SysmonConfig -ne "" -and (Test-Path "$SysmonConfig" -PathType Leaf)) {
     </EventFiltering>
 </Sysmon>
 "@ > "$Env:programfiles\Sysmon\sysmon-espy.xml"
-}
-
-# Copy Sysmon into Program Files if it doesn't already exist
-if (-not (Test-Path "$Env:programfiles\Sysmon" -PathType Container)) {
-    Invoke-WebRequest -OutFile Sysmon.zip https://download.sysinternals.com/files/Sysmon.zip
-    Expand-Archive .\Sysmon.zip
-    rm .\Sysmon.zip
-    mv .\Sysmon\ "$Env:programfiles"
 }
 
 # Load the new sysmon configuration and install the service if needed
