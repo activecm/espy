@@ -256,9 +256,9 @@ if ((.\winlogbeat.exe --path.data "C:\ProgramData\winlogbeat" keystore list | Se
     }
 }
 
-# Set ACL's of the $Env:ProgramData\winlogbeat folder to be the same as $Env:ProgramFiles\winlogbeat* (the main install path)
-# This helps ensure that "normal" users aren't able to access the $Env:ProgramData\winlogbeat folder
-Get-ACL -Path "$Env:ProgramFiles\winlogbeat*" | Set-ACL -Path "$Env:ProgramData\winlogbeat"
+# Set ACL's of the C:\ProgramData\winlogbeat folder to be the same as C:\ProgramFiles\winlogbeat* (the main install path)
+# This helps ensure that "normal" users aren't able to access the C:\ProgramData\winlogbeat folder
+Get-ACL -Path "C:\ProgramFiles\winlogbeat*" | Set-ACL -Path "C:\ProgramData\winlogbeat"
  
 # Backup winlogbeat config if it exists
 if (Test-Path -PathType Leaf .\winlogbeat.yml) {
