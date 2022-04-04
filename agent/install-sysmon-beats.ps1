@@ -235,6 +235,7 @@ if (-not (Test-Path "$Env:programfiles\winlogbeat*" -PathType Container)) {
   Invoke-WebRequest -OutFile WinLogBeat.zip https://artifacts.elastic.co/downloads/beats/winlogbeat/winlogbeat-7.5.2-windows-x86_64.zip
   Expand-Archive .\WinLogBeat.zip
   rm .\WinLogBeat.zip
+  rm .\WinLogBeat\winlogbeat*\winlogbeat.yml
   mv .\WinLogBeat\winlogbeat* "$Env:programfiles"
 }
 
