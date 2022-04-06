@@ -4,7 +4,7 @@ Brought to you by [Active Countermeasures](https://www.activecountermeasures.com
 
 ---
 
-Espy collects Microsoft Sysmon network events in Elastic ECS format and
+Espy collects Microsoft Sysmon network and DNS events in Elastic ECS format and
 adapts it for use with other tools. Currently, Espy supports
 converting Sysmon network connection events into Zeek TSV entries.
 
@@ -58,16 +58,22 @@ The PowerShell script `./agent/install-sysmon-beats.ps1` will install Sysmon and
 
 To install the agent, run the script as `.\install-sysmon-beats.ps1 ip.or.hostname.of.espy.server`.
 
-The script will then:
-- Ask for the password for the Redis server to connect to
+The script then:
+- Asks for the password for the Redis server to connect to
   - This may be supplied using the parameter `RedisPassword`
   - If using the automated Espy Server installer, use the value printed during the server installation
-- Download Sysmon and install it with the default configuration in `%PROGRAMFILES%` if it doesn't exist
-- Ensures Sysmon is running as a service
-- Download WinLogBeat and install it in `%PROGRAMFILES%` and `%PROGRAMDATA%` if it doesn't exist
-- **Removes any existing winlogbeat configuration files (`winlogbeat.yml`)**
-- Installs a new `winlogbeat.yml` file to connect to the Espy Redis server
-- Ensures WinLogBeat is running as a service
+- Downloads Sysmon and installs it in `%PROGRAMFILES%` if it doesn't exist
+  - Creates a new configuration file at `%PROGRAMFILES%\Sysmon\sysmon-espy.xml`
+  - If Sysmon was previously installed, the old configuration will be merged with the configuration necessary to run Espy
+- Ensures Sysmon is running as a service with the new `sysmon-espy.xml` configuration file
+- Downloads WinLogBeat and installs it in `%PROGRAMFILES%` and `%PROGRAMDATA%` if it doesn't exist
+  - Creates a new `winlogbeat.yml` file to connect to the Espy Redis server
+  - If `winlogbeat.yml` was previously installed:
+    - The old configuration will be backed up to `winlogbeat.yml.bak`
+    - The old configuration will be merged with the configuration necessary to run Espy
+    - This merging process may fail. If this happens the script will prompt you to manually edit the `winlogbeat.yml` configuration file.
+    - Run `stop-service winlogbeat; start-service winlogbeat` after editing the `winlogbeat.yml` file
+- Ensures WinLogBeat is running as a service with the new `winlogbeat.yml` configuration file
 
 ### Data Collected By Sysmon Per Network Connection
 - Source
@@ -90,6 +96,16 @@ The script will then:
   - Domain
   - Name
 - Timestamp
+
+### Data Collected By Sysmon Per DNS Lookup
+- Host 
+  - IP
+- DNS
+  - Question
+    - Name
+  - Answers
+    - Type
+    - Data
 
 ## Developer Information
 
