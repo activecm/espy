@@ -73,6 +73,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 # Copy Sysmon into Program Files if it doesn't already exist
 if (-not (Test-Path "$Env:programfiles\Sysmon" -PathType Container)) {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -OutFile Sysmon.zip https://download.sysinternals.com/files/Sysmon.zip
     Expand-Archive .\Sysmon.zip
     rm .\Sysmon.zip
@@ -95,6 +96,7 @@ if ($SysmonConfig -ne "" -and (Test-Path "$SysmonConfig" -PathType Leaf)) {
 
     $configPathAsURI =$sysmonConfig -as [System.URI]
     if ($null -ne $configPathAsURI.AbsoluteURI -and $configPathAsURI.Scheme -match '[http|https]') {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         [xml]$sysmonXML = (Invoke-WebRequest -Uri "$SysmonConfig").Content
     } else {
         [xml]$sysmonXML = Get-Content "$SysmonConfig"
@@ -232,6 +234,7 @@ if (Test-Path "$Env:windir\Sysmon64.exe" -PathType Leaf) {
 
 # Download winlogbeat if it doesn't exist
 if (-not (Test-Path "$Env:programfiles\winlogbeat*" -PathType Container)) {
+  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
   Invoke-WebRequest -OutFile WinLogBeat.zip https://artifacts.elastic.co/downloads/beats/winlogbeat/winlogbeat-7.5.2-windows-x86_64.zip
   Expand-Archive .\WinLogBeat.zip
   rm .\WinLogBeat.zip
