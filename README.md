@@ -21,7 +21,7 @@ server such as the one included in [BeaKer](https://github.com/activecm/BeaKer).
 ## Installation
 
 ### Espy Server System Requirements
-* Operating System: The preferred platform is x86 64-bit Ubuntu 16.04 LTS. The system should be patched and up to date using apt-get.
+* Operating System: The preferred platform is x86 64-bit Ubuntu 20.04 LTS. The system should be patched and up to date using apt-get.
   * The automated installer will also support CentOS 7.
 * Processor: At least two cores.
 * Memory: 8-16GB. Monitoring more hosts requires more RAM.
