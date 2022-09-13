@@ -101,12 +101,14 @@ Elasticsearch:
 ```
 
 Note that the configuration example sets the `Host` to the address of Docker's network bridge. This is a quick way to get Espy hooked up to BeaKer. If your network or Docker installation has a non-standard configuration, this change may not work. 
+
 Why?
+
 BeaKer exposes port `9200` for Elasticsearch, so the Elastic instance runs on the [Docker host's](https://www.google.com/search?q=docker+host) loopback address (`localhost`, `127.0.0.1`). This means that Elasticsearch/Kibana is accessible on your server/network and is not isolated to the Docker containers/network.
 Espy exposes port `6379` for Redis, so Redis is accessible on your server/network, and therefore is able to receive logs from endpoints with the Espy agent installed. Since winlogbeat only supports one output source, we cannot directly pass logs over to Elasticsearch and instead must forward logs over from Redis/Espy. Since Espy's event forwarder runs in a container, it does not have access to the server's loopback address via `localhost` or `127.0.0.1`. Therefore, setting the `Host` field in `espy.yaml` to `localhost:9200` or `127.0.0.1:9200` would be pointing to the Espy container's loopback address, which does not host the Elastic instance, so it would fail. 
 
 There are multiple ways to get a Docker container to be able to connect to the Docker host's network. [This tutorial](https://www.howtogeek.com/devops/how-to-connect-to-localhost-within-a-docker-container/) shows a few of those methods. If using `172.17.0.1` as the Elastic host address doesn't work for you, maybe some of these other methods will. Some methods do impose security risks, so be sure to review what would be exposed with each method. 
-One thing to note is that the forwarder receives the value of the `Host` parameter as a string, so using any Docker based variables that are usually used in Compose or Dockerfiles would not work unless Docker literally translates the routing address to the name of the variable. (i.e Can the Espy container reach https://host.docker.internal:9200/ ?)
+One thing to note is that the forwarder receives the value of the `Host` parameter as a string, so using any Docker based variables that are usually used in Compose or Dockerfiles would not work unless Docker literally translates the routing address to the name of the variable. (i.e Can the Espy container reach `https://host.docker.internal:9200/` ?)
 
 ### Data Collected By Sysmon Per Network Connection
 - Source
