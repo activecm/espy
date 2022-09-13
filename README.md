@@ -75,6 +75,39 @@ The script then:
     - Run `stop-service winlogbeat; start-service winlogbeat` after editing the `winlogbeat.yml` file
 - Ensures WinLogBeat is running as a service with the new `winlogbeat.yml` configuration file
 
+### Forwarding Events to BeaKer's Elasticsearch Instance
+One of our open source tools, [BeaKer](https://github.com/activecm/BeaKer), uses Elasticsearch with Kibana dashboards. If you wish to forward the log events for all of the Windows hosts running the Espy agent to BeaKer's Elasticsearch instance, there are some configuration changes needed.
+
+- Find the address of Docker's network bridge (default is `172.17.0.1`):
+  - `docker network inspect bridge --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}'`
+  
+In `/etc/espy/espy.yaml`, edit the `Elasticsearch` block as follows:
+
+```
+Elasticsearch:
+  # Set the host to the address of Docker's network bridge.
+  Host: "172.17.0.1:9200"
+  # Use the credentials created for BeaKer's ingestion tasks.
+  # If the automated installer for BeaKer was used, the account is sysmon-ingest.
+  User: "sysmon-ingest"
+  Password: "password"
+
+  TLS:
+    # TLS must be enabled.
+    Enable: true
+    # Do not verify certs or provide a CA file if using the automated installer.
+    VerifyCertificate: false
+    CAFile: ""
+```
+
+Note that the configuration example sets the `Host` to the address of Docker's network bridge. This is a quick way to get Espy hooked up to BeaKer. If your network or Docker installation has a non-standard configuration, this change may not work. 
+Why?
+BeaKer exposes port `9200` for Elasticsearch, so the Elastic instance runs on the [Docker host's](https://www.google.com/search?q=docker+host) loopback address (`localhost`, `127.0.0.1`). This means that Elasticsearch/Kibana is accessible on your server/network and is not isolated to the Docker containers/network.
+Espy exposes port `6379` for Redis, so Redis is accessible on your server/network, and therefore is able to receive logs from endpoints with the Espy agent installed. Since winlogbeat only supports one output source, we cannot directly pass logs over to Elasticsearch and instead must forward logs over from Redis/Espy. Since Espy's event forwarder runs in a container, it does not have access to the server's loopback address via `localhost` or `127.0.0.1`. Therefore, setting the `Host` field in `espy.yaml` to `localhost:9200` or `127.0.0.1:9200` would be pointing to the Espy container's loopback address, which does not host the Elastic instance, so it would fail. 
+
+There are multiple ways to get a Docker container to be able to connect to the Docker host's network. [This tutorial](https://www.howtogeek.com/devops/how-to-connect-to-localhost-within-a-docker-container/) shows a few of those methods. If using `172.17.0.1` as the Elastic host address doesn't work for you, maybe some of these other methods will. Some methods do impose security risks, so be sure to review what would be exposed with each method. 
+One thing to note is that the forwarder receives the value of the `Host` parameter as a string, so using any Docker based variables that are usually used in Compose or Dockerfiles would not work unless Docker literally translates the routing address to the name of the variable. (i.e Can the Espy container reach https://host.docker.internal:9200/ ?)
+
 ### Data Collected By Sysmon Per Network Connection
 - Source
   - IP Address
