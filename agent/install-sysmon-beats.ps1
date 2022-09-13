@@ -285,6 +285,7 @@ output.redis:
   ssl:
     enabled: true
     verification_mode: none
+    supported-protocols: [TLSv1.2, TLSv1.3]
   key: "net-data:sysmon"
   password: `"`${REDIS_PASSWORD}`"
 "@
