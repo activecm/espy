@@ -92,6 +92,7 @@ Elasticsearch:
   # Use the credentials created for BeaKer's ingestion tasks.
   # If the automated installer for BeaKer was used, the account is sysmon-ingest.
   User: "sysmon-ingest"
+  # If you forgot the password for the sysmon-ingest user, it can be reset within Kibana under Management>Security>Users
   Password: "password"
 
   TLS:
