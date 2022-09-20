@@ -80,6 +80,8 @@ One of our open source tools, [BeaKer](https://github.com/activecm/BeaKer), uses
 
 - Find the address of Docker's network bridge (default is `172.17.0.1`):
   - `docker network inspect bridge --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}'`
+  or
+  - `ip -br -c -f inet addr show docker0`
   
 In `/etc/espy/espy.yaml`, edit the `Elasticsearch` block as follows:
 
