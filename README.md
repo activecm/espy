@@ -93,7 +93,7 @@ Elasticsearch:
   # If the automated installer for BeaKer was used, the account is sysmon-ingest.
   User: "sysmon-ingest"
   # If you forgot the password for the sysmon-ingest user, it can be reset within Kibana under Management>Security>Users
-  # Resetting the password requires updating each Windows system running the **BeaKer** agent with the new password
+  # Resetting the password requires updating each Windows system running the BeaKer agent with the new password
   Password: "password"
 
   TLS:
