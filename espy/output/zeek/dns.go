@@ -213,7 +213,7 @@ func (c DnsTSV) FormatLines(outputData []input.ECSRecord) (output string, err er
 }
 
 func (c DnsTSV) HandlesECSRecord(data input.ECSRecord) bool {
-	return data.Event.Provider == "Microsoft-Windows-Sysmon" && data.Event.Code == 22
+	return data.Event.Provider == "Microsoft-Windows-Sysmon" && data.Event.Code.String() == "22"
 }
 
 func init() {
