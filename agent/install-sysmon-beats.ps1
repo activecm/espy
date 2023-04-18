@@ -34,6 +34,10 @@ The following changes are made to the given configuration file:
 
 The schema version of the given Sysmon configuration must be greater than version 4.1.
 
+.PARAMETER BeatsVersion
+The version of Winlogbeat to install. This will override any logic that handles upgrading to an
+intermediate version of Winlogbeat before upgrading to a higher major version.
+
 .EXAMPLE
 # Asks for Redis authentication details at runtime
 .\install-sysmon-beats.ps1 my-redis-host.com 6379
@@ -57,7 +61,7 @@ param (
 
 )
 
-$ELK_STACK_VERSION = "8.6.2"
+$ELK_STACK_VERSION = "8.7.0"
 
 [bool] $OverrideBeatsVersion = $false
 if ([string]::IsNullOrWhiteSpace("$BeatsVersion")) {
@@ -75,7 +79,7 @@ else {
 
 # Check for existing winlogbeat installation via BeaKer
 if (Test-Path "$Env:programfiles\Winlogbeat-BeaKer" -PathType Container) {
-  Write-Output "Detected existing winlogbeat installation performed by Espy. Continuing the install may result in a partially working Sysmon/winlogbeat setup."
+  Write-Output "Detected existing winlogbeat installation performed by BeaKer. Continuing the install may result in a partially working Sysmon/winlogbeat setup."
   $installAnyway = Read-Host -Prompt "Are you sure you want to continue? [y/n]"
   if (($installAnyway -eq 'n') -or ($installAnyway -eq 'N')) {
     Exit
