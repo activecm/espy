@@ -34,8 +34,8 @@ var (
 	)
 )
 
-//linkContextToInterrupt creates a child context which is cancelled when
-//the program receives an interrupt
+// linkContextToInterrupt creates a child context which is cancelled when
+// the program receives an interrupt
 func linkContextToInterrupt(ctx context.Context) (context.Context, context.CancelFunc) {
 	ctx, cancelCtx := context.WithCancel(ctx)
 
@@ -48,7 +48,7 @@ func linkContextToInterrupt(ctx context.Context) (context.Context, context.Cance
 	return ctx, cancelCtx
 }
 
-//isContextCancelled returns true if a context has been cancelled
+// isContextCancelled returns true if a context has been cancelled
 func isContextCancelled(ctx context.Context) bool {
 	select {
 	case <-ctx.Done():
@@ -127,9 +127,17 @@ func main() {
 			break
 		}
 
+		// parse metadata to get the beats version
+		ecsMetadata := input.ECSMetadata{}
+		err = json.Unmarshal([]byte(netMessage[1]), &ecsMetadata)
+		if err != nil {
+			log.WithError(err).WithField("input", netMessage[1]).Error("Could not parse JSON log metadata.")
+			continue
+		}
+
 		//send message to elasticsearch
 		if esWriter != nil {
-			err = esWriter.WriteECSRecords([]string{netMessage[1]})
+			err = esWriter.WriteECSRecords([]string{netMessage[1]}, ecsMetadata.Metadata.Version)
 			if err != nil {
 				log.WithError(err).WithField("input", netMessage[1]).Error("Could not connect to Elasticsearch.")
 			}
@@ -137,10 +145,27 @@ func main() {
 
 		//parse data and send it to zeek writer
 		ecsData := input.ECSRecord{}
-		err = json.Unmarshal([]byte(netMessage[1]), &ecsData)
-		if err != nil {
-			log.WithError(err).WithField("input", netMessage[1]).Error("Could not parse JSON data.")
-			continue
+		// Check if the beats version is v8.x
+		if ecsMetadata.Metadata.Version != "" && ecsMetadata.Metadata.Version[0] == '8' {
+			ecsDatav8 := input.ECSRecordv8{}
+			err = json.Unmarshal([]byte(netMessage[1]), &ecsDatav8)
+			if err != nil {
+				log.WithError(err).WithField("input", netMessage[1]).Error("Could not parse v8.x JSON data.")
+				continue
+			}
+			// Process the v8.x event and convert it to a regular ECSRecord
+			data, err := ecsDatav8.Process()
+			if err != nil {
+				log.WithError(err).WithField("input", netMessage[1]).Error(err)
+				continue
+			}
+			ecsData = *data
+		} else {
+			err = json.Unmarshal([]byte(netMessage[1]), &ecsData)
+			if err != nil {
+				log.WithError(err).WithField("input", netMessage[1]).Error("Could not parse JSON data.")
+				continue
+			}
 		}
 
 		err = zeekWriter.WriteECSRecords([]input.ECSRecord{ecsData})

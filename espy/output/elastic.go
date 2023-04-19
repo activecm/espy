@@ -15,8 +15,8 @@ type ElasticWriter struct {
 	httpClient http.Client
 }
 
-//NewElasticWriter returns a JSONWriter which sends JSON document to
-//an Elasticsearch index
+// NewElasticWriter returns a JSONWriter which sends JSON document to
+// an Elasticsearch index
 func NewElasticWriter(static config.ESStaticCfg, running config.ESRunningCfg) JSONWriter {
 	writer := ElasticWriter{
 		ESStaticCfg: static,
@@ -29,17 +29,24 @@ func NewElasticWriter(static config.ESStaticCfg, running config.ESRunningCfg) JS
 	return writer
 }
 
-//targetIndex returns the name of the index to insert documents into
+// targetIndex returns the name of the index to insert documents into
 func (e ElasticWriter) targetIndex() string {
 	today := time.Now()
 	//TODO: Make this configurable
 	return fmt.Sprintf("sysmon-%s", today.Format("2006-01-02"))
 }
 
-//WriteECSRecords sends the outputData to Elasticsearch
-func (e ElasticWriter) WriteECSRecords(outputData []string) error {
+// WriteECSRecords sends the outputData to Elasticsearch
+func (e ElasticWriter) WriteECSRecords(outputData []string, beatsVersion string) error {
 	targetIndex := e.targetIndex()
-	esHostURL := fmt.Sprintf("https://%s/%s/_doc", e.Host, e.targetIndex())
+	var esHostURL string
+	if beatsVersion[0] == '8' {
+		esHostURL = fmt.Sprintf("https://%s/winlogbeat-%s/_doc?pipeline=winlogbeat-%s-routing", e.Host, beatsVersion, beatsVersion)
+	} else if beatsVersion == "7.17.9" {
+		esHostURL = fmt.Sprintf("https://%s/winlogbeat-%s/_doc", e.Host, beatsVersion)
+	} else { // beats version below 7.17.9
+		esHostURL = fmt.Sprintf("https://%s/%s/_doc", e.Host, targetIndex)
+	}
 	for i := range outputData {
 		reader := strings.NewReader(outputData[i])
 		request, err := http.NewRequest("POST", esHostURL, reader)
@@ -65,8 +72,8 @@ func (e ElasticWriter) WriteECSRecords(outputData []string) error {
 	return nil
 }
 
-//Close does nothing for the ElasticWriter since each document is written
-//with its own TCP session. This will likely be needed if we implement the Bulk API.
+// Close does nothing for the ElasticWriter since each document is written
+// with its own TCP session. This will likely be needed if we implement the Bulk API.
 func (e ElasticWriter) Close() error {
 	return nil
 }

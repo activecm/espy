@@ -52,28 +52,28 @@ func (c ConnTSV) FormatLines(outputData []input.ECSRecord) (output string, err e
 
 		values := []string{
 			fmt.Sprintf("%.6f", float64(goStartTime.UnixNano())/1e9), // "ts"
-			header.UnsetField,                            // "uid"
-			outputData[i].Source.IP,                      // "id.orig_h"
-			strconv.Itoa(outputData[i].Source.Port),      // "id.orig_p"
-			outputData[i].Destination.IP,                 // "id.resp_h"
-			strconv.Itoa(outputData[i].Destination.Port), // "id.resp_p",
-			outputData[i].Network.Transport,              // "proto"
-			outputData[i].Network.Protocol,               // "service"
-			header.UnsetField,                            // "duration"
-			header.UnsetField,                            // "orig_bytes"
-			header.UnsetField,                            // "resp_bytes"
-			header.UnsetField,                            // "conn_state",
-			"F",                                          // "local_orig"
-			"F",                                          // "local_resp"
-			header.UnsetField,                            // "missed_bytes"
-			header.UnsetField,                            // "history"
-			header.UnsetField,                            // "orig_pkts",
-			header.UnsetField,                            // "orig_ip_bytes"
-			header.UnsetField,                            // "resp_pkts"
-			header.UnsetField,                            // "resp_ip_bytes"
-			header.EmptyField,                            // "tunnel_parents",
-			outputData[i].Agent.ID,                       // "agent_uuid"
-			outputData[i].Agent.Hostname,                 // "agent_hostname",
+			header.UnsetField,                       // "uid"
+			outputData[i].Source.IP,                 // "id.orig_h"
+			outputData[i].Source.Port.String(),      // "id.orig_p"
+			outputData[i].Destination.IP,            // "id.resp_h"
+			outputData[i].Destination.Port.String(), // "id.resp_p",
+			outputData[i].Network.Transport,         // "proto"
+			outputData[i].Network.Protocol,          // "service"
+			header.UnsetField,                       // "duration"
+			header.UnsetField,                       // "orig_bytes"
+			header.UnsetField,                       // "resp_bytes"
+			header.UnsetField,                       // "conn_state",
+			"F",                                     // "local_orig"
+			"F",                                     // "local_resp"
+			header.UnsetField,                       // "missed_bytes"
+			header.UnsetField,                       // "history"
+			header.UnsetField,                       // "orig_pkts",
+			header.UnsetField,                       // "orig_ip_bytes"
+			header.UnsetField,                       // "resp_pkts"
+			header.UnsetField,                       // "resp_ip_bytes"
+			header.EmptyField,                       // "tunnel_parents",
+			outputData[i].Agent.ID,                  // "agent_uuid"
+			outputData[i].Agent.Hostname,            // "agent_hostname",
 		}
 
 		lastIdx := len(values) - 1
@@ -89,7 +89,7 @@ func (c ConnTSV) FormatLines(outputData []input.ECSRecord) (output string, err e
 }
 
 func (c ConnTSV) HandlesECSRecord(data input.ECSRecord) bool {
-	return data.Event.Provider == "Microsoft-Windows-Sysmon" && data.Event.Code == 3
+	return data.Event.Provider == "Microsoft-Windows-Sysmon" && data.Event.Code.String() == "3"
 }
 
 func init() {
