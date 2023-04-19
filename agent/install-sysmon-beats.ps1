@@ -45,6 +45,10 @@ intermediate version of Winlogbeat before upgrading to a higher major version.
 # Reads Redis authentication details from the command line aguments
 .\install-sysmon-beats.ps1 my-redis-host.com 6379 redis_password
 
+# Overrides the version of Winlogbeat to install
+.\install-sysmon-beats.ps1 my-redis-host.com 6379 redis_password -BeatsVersion "8.6.2"
+
+
 .NOTES
 The Redis credentials are stored locally using Elastic Winlogbeat's secure
 storage facilities. The RedisPassword should not be passed into the script
@@ -62,6 +66,24 @@ param (
 )
 
 $ELK_STACK_VERSION = "8.7.0"
+
+if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+  # Use param values instead of $args because $args doesn't appear to get populated if param values are specified
+  # Also set the ExecutionPolicy to Bypass otherwise this will likely fail as script
+  # execution is disabled by default.
+  $arguments = "-ExecutionPolicy", "Bypass", "-File", $myinvocation.mycommand.definition, $RedisHost, $RedisPort
+  if ($RedisPassword) {
+    # Only add this argument if the user provided it, otherwise it will be blank and will cause an error
+    $arguments += $RedisPassword
+  }
+  if ($BeatsVersion) {
+    # Only add this argument if the user provided it, otherwise it will be blank and will cause an error
+    $arguments += "-BeatsVersion $BeatsVersion"
+  }
+  
+  Start-Process -FilePath powershell -Verb runAs -ArgumentList $arguments
+  Break
+}
 
 [bool] $OverrideBeatsVersion = $false
 if ([string]::IsNullOrWhiteSpace("$BeatsVersion")) {
@@ -84,20 +106,6 @@ if (Test-Path "$Env:programfiles\Winlogbeat-BeaKer" -PathType Container) {
   if (($installAnyway -eq 'n') -or ($installAnyway -eq 'N')) {
     Exit
   }
-}
-
-if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-  # Use param values instead of $args because $args doesn't appear to get populated if param values are specified
-  # Also set the ExecutionPolicy to Bypass otherwise this will likely fail as script
-  # execution is disabled by default.
-  $arguments = "-ExecutionPolicy", "Bypass", "-File", $myinvocation.mycommand.definition, $RedisHost, $RedisPort
-  if ($RedisPassword) {
-    # Only add this argument if the user provided it, otherwise it will be blank and will cause an error
-    $arguments += $RedisPassword
-  }
-  
-  Start-Process -FilePath powershell -Verb runAs -ArgumentList $arguments
-  Break
 }
 
 # Copy Sysmon into Program Files if it doesn't already exist
