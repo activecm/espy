@@ -20,7 +20,7 @@ ARG GOOS=linux
 # environment variables for the call to go build
 RUN make CGO_ENABLED=$CGO_ENABLED GOARCH=$GOARCH GOOS=$GOOS
 
-FROM debian:stretch-slim
+FROM debian:buster-slim
 WORKDIR /
 COPY --from=espy-build /go/src/github.com/activecm/espy/espy/etc/espy.yaml /etc/espy/config.yaml
 COPY --from=espy-build /go/src/github.com/activecm/espy/espy/espy /espy
