@@ -375,6 +375,10 @@ else {
 winlogbeat.event_logs:
   - name: Microsoft-Windows-Sysmon/Operational
     event_id: 3, 22
+    processors:
+      - add_host_metadata:
+          netinfo:
+            enabled: true
 "@
 }
 
