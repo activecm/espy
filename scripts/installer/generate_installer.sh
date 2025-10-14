@@ -8,7 +8,7 @@ DOCKER_BUILD_SERVICES="espy"
 DOCKER_PULL_SERVICES="redis-server"
 # These images are exported in the deployment after running pulls/builds
 DOCKER_EXPORT_IMAGES=$(cat <<'HEREDOC'
-    redis:6.0
+    redis:6.2.20
     quay.io/activecm/espy:latest
 HEREDOC
 )
