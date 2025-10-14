@@ -1,7 +1,7 @@
 version: '3'
 services:
   redis-server:
-    image: redis:6.0
+    image: redis:6.2.20
     restart: unless-stopped
     volumes:
       - ${ESPY_CONFIG_DIR:-/etc/espy}:/etc/espy:ro
@@ -21,10 +21,3 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ${ESPY_CONFIG_DIR:-/etc/espy}:/etc/espy:ro
       - ${ESPY_ZEEK_LOGS:-/opt/zeek/logs}:/opt/zeek/logs
-
-#  redis-cli:
-#    image: redis:6.0
-#    volumes:
-#      - ${ESPY_CONFIG_DIR:-/etc/espy}:/etc/espy
-#    entrypoint: ""
-#    command: ["redis-cli", "-h", "redis-server"]
