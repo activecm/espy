@@ -172,7 +172,7 @@ func (c DnsTSV) FormatLines(outputData []input.ECSRecord) (output string, err er
 		for _, sourceIP := range util.SelectPublicPrivateIPs(outputData[i].Host.IP) {
 			values := []string{
 				fmt.Sprintf("%.6f", float64(goStartTime.UnixNano())/1e9), // "ts"
-				header.UnsetField,               // "uid"
+				NewUID(),                        // "uid"
 				sourceIP,                        // "id.orig_h"
 				header.UnsetField,               // "id.orig_p"
 				header.UnsetField,               // "id.resp_h"
