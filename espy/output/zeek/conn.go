@@ -52,7 +52,7 @@ func (c ConnTSV) FormatLines(outputData []input.ECSRecord) (output string, err e
 
 		values := []string{
 			fmt.Sprintf("%.6f", float64(goStartTime.UnixNano())/1e9), // "ts"
-			header.UnsetField,                       // "uid"
+			NewUID(),                                // "uid"
 			outputData[i].Source.IP,                 // "id.orig_h"
 			outputData[i].Source.Port.String(),      // "id.orig_p"
 			outputData[i].Destination.IP,            // "id.resp_h"
